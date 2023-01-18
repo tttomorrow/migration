@@ -1,0 +1,29 @@
+server:
+  port: 9001
+logging:
+  config: #absolute_path/log4j2source.xml
+
+spring:
+  check:
+    server-uri: http://127.0.0.1:9000
+  extract:
+    schema: test
+    databaseType: MS
+    query-dop: 8 # openGauss database Parallel Query session config
+    debezium-enable: false
+    debezium-topic: data_check_all # debezium topic
+    debezium-groupId: debezium-extract-group # debezium topic groupId
+    debezium-time-period: 1 # Debezium incremental migration verification time period: 24 * 60 unit: Min
+    # debezium-num-period: Debezium incremental migration verification is the threshold value of the number
+    # of incremental change records. The default value is 1000. The threshold value should be greater than 100
+    debezium-num-period: 1000
+
+  kafka:
+    bootstrap-servers: localhost:9092
+  datasource:
+    druid:
+      dataSourceOne:
+        driver-class-name: com.mysql.cj.jdbc.Driver
+        url: jdbc:mysql://127.0.0.1:3306/mysql?useSSL=false&useUnicode=true&characterEncoding=utf-8&serverTimezone=UTC&allowPublicKeyRetrieval=true
+        username:
+        password: 'xxxx' # The password text may contain special characters, which need to be enclosed in quotation marks

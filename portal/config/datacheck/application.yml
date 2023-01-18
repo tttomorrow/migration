@@ -1,0 +1,20 @@
+server:
+  port: 9000
+logging:
+  config: # absolute_path/config/log4j2.xml
+spring:
+  kafka:
+    bootstrap-servers: localhost:9092
+data:
+  check:
+    data-path: ./check_result
+    source-uri: http://127.0.0.1:9001 #  server.port=9001
+    sink-uri: http://127.0.0.1:9002 # server.port=9002
+    # Configure the black and white list startup mode of the checklist
+    # [black starts the black list verification,white starts the white list verification]
+    black-white-mode: BLACK
+    black-list:  #   like table1,table2
+
+
+
+
