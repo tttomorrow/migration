@@ -18,6 +18,12 @@ public interface Command {
                 String OFFLINE = "install mysql datacheck tools offline";
                 String DEFAULT = "install mysql datacheck tools";
             }
+
+            interface ReverseMigration{
+                String ONLINE = "install mysql reverse migration tools online";
+                String OFFLINE = "install mysql reverse migration tools offline";
+                String DEFAULT = "install mysql reverse migration tools";
+            }
             interface All{
                 String DEFAULT = "install mysql all migration tools";
             }
@@ -28,6 +34,7 @@ public interface Command {
             String FULL = "uninstall mysql full migration tools";
             String INCREMENTAL = "uninstall mysql incremental migration tools";
             String CHECK = "uninstall mysql datacheck tools";
+            String REVERSE = "uninstall mysql reverse migration tools";
             String ALL = "uninstall mysql all migration tools";
         }
     }
@@ -44,7 +51,6 @@ public interface Command {
             String PLAN1 = "start plan1";
             String PLAN2 = "start plan2";
             String PLAN3 = "start plan3";
-            String PLAN4 = "start plan4";
             String CURRENT = "start current plan";
         }
     }
@@ -56,16 +62,30 @@ public interface Command {
     }
     interface Stop{
         String PLAN = "stop plan";
+        String INCREMENTAL_MIGRATION = "stop incremental migration";
+        String REVERSE_MIGRATION = "stop reverse migration";
     }
     interface Parameters{
+        String ID = "workspace.id";
         String PATH = "path";
         String ACTION = "action";
         String TYPE = "type";
-        String MIGRATION_TYPE = "migrationType";
+        String MIGRATION_TYPE = "migration.type";
         String PARAMETER = "parameter";
         String SKIP = "skip";
         String CHECK = "check";
         String ORDER = "order";
+        interface Default{
+            String ID = "1";
+            String PATH = "";
+            String ACTION = "";
+            String TYPE = "";
+            String MIGRATION_TYPE = "";
+            String PARAMETER = "";
+            String SKIP = "";
+            String CHECK = "";
+            String ORDER = "";
+        }
     }
     interface Action{
         String HELP = "help";
@@ -74,5 +94,10 @@ public interface Command {
         String INSTALL = "install";
         String UNINSTALL = "uninstall";
         String START = "start";
+    }
+
+    interface Run{
+        String INCREMENTAL_MIGRATION = "run incremental migration";
+        String REVERSE_MIGRATION = "run reverse migration";
     }
 }

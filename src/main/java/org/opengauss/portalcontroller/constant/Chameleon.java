@@ -23,4 +23,11 @@ public interface Chameleon {
             String NAME = "pg_conn.database";
         }
     }
+
+    interface Override{
+        String AMOUNT = "type.override";
+        String SOURCE_TYPE = "override.type";
+        String SINK_TYPE = "override.to";
+        String TABLES = "override.tables";
+    }
 }

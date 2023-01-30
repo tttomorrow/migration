@@ -14,6 +14,12 @@
  */
 package org.opengauss.portalcontroller;
 
+import org.opengauss.portalcontroller.check.CheckTaskFullDatacheck;
+import org.opengauss.portalcontroller.check.CheckTaskIncrementalDatacheck;
+import org.opengauss.portalcontroller.check.CheckTaskIncrementalMigration;
+import org.opengauss.portalcontroller.check.CheckTaskMysqlFullMigration;
+import org.opengauss.portalcontroller.check.CheckTaskReverseDatacheck;
+import org.opengauss.portalcontroller.check.CheckTaskReverseMigration;
 import org.opengauss.portalcontroller.constant.Chameleon;
 import org.opengauss.portalcontroller.constant.Check;
 import org.opengauss.portalcontroller.constant.Command;
@@ -40,7 +46,6 @@ public class Task {
     private static final org.slf4j.Logger LOGGER = LoggerFactory.getLogger(Task.class);
 
 
-
     /**
      * All valid task list.
      */
@@ -55,6 +60,8 @@ public class Task {
 
     /**
      * Get parameter taskProcessMap.This parameter is a map of method name and process name which can be find uniquely.
+     *
+     * @return the task process map
      */
     public static HashMap<String, String> getTaskProcessMap() {
         return Task.taskProcessMap;
@@ -62,6 +69,8 @@ public class Task {
 
     /**
      * Set parameter taskProcessMap.This parameter is a map of method name and process name which can be find uniquely.
+     *
+     * @param map the map
      */
     public static void setTaskProcessMap(HashMap<String, String> map) {
         Task.taskProcessMap = map;
@@ -83,14 +92,17 @@ public class Task {
         HashMap<String, String> tempTaskProcessMap = new HashMap<>();
         String kafkaPath = PortalControl.toolsConfigParametersTable.get(Debezium.Kafka.PATH);
         String confluentPath = PortalControl.toolsConfigParametersTable.get(Debezium.Confluent.PATH);
+        String datacheckPath = PortalControl.toolsConfigParametersTable.get(Check.PATH);
         tempTaskProcessMap.put(Method.Run.ZOOKEEPER, "QuorumPeerMain " + kafkaPath + "config/zookeeper.properties");
         tempTaskProcessMap.put(Method.Run.KAFKA, "Kafka " + kafkaPath + "config/server.properties");
         tempTaskProcessMap.put(Method.Run.REGISTRY, "SchemaRegistryMain " + confluentPath + "etc/schema-registry/schema-registry.properties");
-        tempTaskProcessMap.put(Method.Run.CONNECT, "ConnectStandalone " + confluentPath + "etc/schema-registry/connect-avro-standalone.properties " + confluentPath + "etc/kafka/mysql-source.properties " + confluentPath + "etc/kafka/mysql-sink.properties");
-        tempTaskProcessMap.put(Method.Run.REVERSE_CONNECT, "ConnectStandalone " + confluentPath + "etc/schema-registry/connect-avro-standalone.properties " + confluentPath + "etc/kafka/opengauss-source.properties " + confluentPath + "etc/kafka/opengauss-sink.properties");
-        tempTaskProcessMap.put(Method.Run.CHECK_SOURCE, "datachecker-extract-0.0.1.jar --spring.profiles.active=source");
-        tempTaskProcessMap.put(Method.Run.CHECK_SINK, "datachecker-extract-0.0.1.jar --spring.profiles.active=sink");
-        tempTaskProcessMap.put(Method.Run.CHECK, "datachecker-check-0.0.1.jar");
+        tempTaskProcessMap.put(Method.Run.CONNECT_SOURCE, "ConnectStandalone " + PortalControl.portalWorkSpacePath + "config/debezium/connect-avro-standalone-source.properties " + PortalControl.portalWorkSpacePath + "config/debezium/mysql-source.properties");
+        tempTaskProcessMap.put(Method.Run.CONNECT_SINK, "ConnectStandalone " + PortalControl.portalWorkSpacePath + "config/debezium/connect-avro-standalone-sink.properties " + PortalControl.portalWorkSpacePath + "config/debezium/mysql-sink.properties");
+        tempTaskProcessMap.put(Method.Run.REVERSE_CONNECT_SOURCE, "ConnectStandalone " + PortalControl.portalWorkSpacePath + "config/debezium/connect-avro-standalone-reverse-source.properties " + PortalControl.portalWorkSpacePath + "config/debezium/opengauss-source.properties");
+        tempTaskProcessMap.put(Method.Run.REVERSE_CONNECT_SINK, "ConnectStandalone " + PortalControl.portalWorkSpacePath + "config/debezium/connect-avro-standalone-reverse-sink.properties " + PortalControl.portalWorkSpacePath + "config/debezium/opengauss-sink.properties");
+        tempTaskProcessMap.put(Method.Run.CHECK_SOURCE, "java -Dspring.config.additional-location=" + PortalControl.portalWorkSpacePath + "config/datacheck/application-source.yml -jar " + datacheckPath + "datachecker-extract-0.0.1.jar --spring.profiles.active=source");
+        tempTaskProcessMap.put(Method.Run.CHECK_SINK, "java -Dspring.config.additional-location=" + PortalControl.portalWorkSpacePath + "config/datacheck/application-sink.yml -jar " + datacheckPath + "datachecker-extract-0.0.1.jar --spring.profiles.active=sink");
+        tempTaskProcessMap.put(Method.Run.CHECK, "java -Dspring.config.additional-location=" + PortalControl.portalWorkSpacePath + "config/datacheck/application.yml -jar " + datacheckPath + "datachecker-check-0.0.1.jar");
         setTaskProcessMap(tempTaskProcessMap);
     }
 
@@ -106,8 +118,10 @@ public class Task {
         runTaskHandlerHashMap.put(Method.Run.ZOOKEEPER, (event) -> task.runZookeeper(kafkaPath));
         runTaskHandlerHashMap.put(Method.Run.KAFKA, (event) -> task.runKafka(kafkaPath));
         runTaskHandlerHashMap.put(Method.Run.REGISTRY, (event) -> task.runSchemaRegistry(confluentPath));
-        runTaskHandlerHashMap.put(Method.Run.CONNECT, (event) -> task.runKafkaConnect(confluentPath));
-        runTaskHandlerHashMap.put(Method.Run.REVERSE_CONNECT, (event) -> task.runReverseKafkaConnect(confluentPath));
+        runTaskHandlerHashMap.put(Method.Run.CONNECT_SOURCE, (event) -> task.runKafkaConnectSource(confluentPath));
+        runTaskHandlerHashMap.put(Method.Run.CONNECT_SINK, (event) -> task.runKafkaConnectSink(confluentPath));
+        runTaskHandlerHashMap.put(Method.Run.REVERSE_CONNECT_SOURCE, (event) -> task.runReverseKafkaConnectSource(confluentPath));
+        runTaskHandlerHashMap.put(Method.Run.REVERSE_CONNECT_SINK, (event) -> task.runReverseKafkaConnectSink(confluentPath));
         runTaskHandlerHashMap.put(Method.Run.CHECK_SINK, (event) -> task.runDataCheckSink(datacheckPath));
         runTaskHandlerHashMap.put(Method.Run.CHECK_SOURCE, (event) -> task.runDataCheckSource(datacheckPath));
         runTaskHandlerHashMap.put(Method.Run.CHECK, (event) -> task.runDataCheck(datacheckPath));
@@ -124,8 +138,10 @@ public class Task {
         stopTaskHandlerHashMap.put(Method.Stop.ZOOKEEPER, (event) -> task.stopZookeeper(kafkaPath));
         stopTaskHandlerHashMap.put(Method.Stop.KAFKA, (event) -> task.stopKafka(kafkaPath));
         stopTaskHandlerHashMap.put(Method.Stop.REGISTRY, (event) -> task.stopKafkaSchema(confluentPath));
-        stopTaskHandlerHashMap.put(Method.Stop.CONNECT, (event) -> task.stopKafkaConnect(confluentPath));
-        stopTaskHandlerHashMap.put(Method.Stop.REVERSE_CONNECT, (event) -> task.stopReverseKafkaConnect(confluentPath));
+        stopTaskHandlerHashMap.put(Method.Stop.CONNECT_SOURCE, (event) -> task.stopKafkaConnectSource());
+        stopTaskHandlerHashMap.put(Method.Stop.CONNECT_SINK, (event) -> task.stopKafkaConnectSink());
+        stopTaskHandlerHashMap.put(Method.Stop.REVERSE_CONNECT_SOURCE, (event) -> task.stopReverseKafkaConnectSource());
+        stopTaskHandlerHashMap.put(Method.Stop.REVERSE_CONNECT_SINK, (event) -> task.stopReverseKafkaConnectSink());
         stopTaskHandlerHashMap.put(Method.Stop.CHECK_SINK, (event) -> task.stopDataCheckSink());
         stopTaskHandlerHashMap.put(Method.Stop.CHECK_SOURCE, (event) -> task.stopDataCheckSource());
         stopTaskHandlerHashMap.put(Method.Stop.CHECK, (event) -> task.stopDataCheck());
@@ -136,7 +152,7 @@ public class Task {
      *
      * @param methodName Task name.
      */
-    public static void startTaskMethod(String methodName) {
+    public static void startTaskMethod(String methodName,int sleepTime) {
         if (Plan.stopPlan) {
             return;
         }
@@ -151,7 +167,7 @@ public class Task {
                 runningTaskThreadThreadList.add(runningTaskThread);
                 Plan.setRunningTaskThreadsList(runningTaskThreadThreadList);
                 try {
-                    Thread.sleep(8000);
+                    Thread.sleep(sleepTime);
                 } catch (InterruptedException e) {
                     LOGGER.error("Interrupted exception occurred in starting task.");
                 }
@@ -165,38 +181,77 @@ public class Task {
     }
 
     /**
+     * Stop task method.
+     *
+     * @param methodName the method name
+     */
+    public static void stopTaskMethod(String methodName){
+        String methodProcessName = taskProcessMap.get(methodName);
+        int pid = Tools.getCommandPid(methodProcessName);
+        List<RunningTaskThread> runningTaskThreadThreadList = Plan.getRunningTaskThreadsList();
+        int index = -1;
+        for(RunningTaskThread runningTaskThread: runningTaskThreadThreadList ){
+            if(runningTaskThread.getMethodName().equals(methodName)){
+                runningTaskThread.stopTask();
+                index = runningTaskThreadThreadList.indexOf(runningTaskThread);
+                break;
+            }
+        }
+        if(index != -1){
+            runningTaskThreadThreadList.remove(index);
+        }
+        Plan.setRunningTaskThreadsList(runningTaskThreadThreadList);
+    }
+
+    /**
+     * Use chameleon replica order.
+     *
+     * @param chameleonVenvPath the chameleon venv path
+     * @param order             the order
+     * @param parametersTable   the parameters table
+     * @param workspaceId       the workspace id
+     */
+    public void useChameleonReplicaOrder(String chameleonVenvPath, String order, Hashtable<String, String> parametersTable,String workspaceId) {
+        startChameleonReplicaOrder(chameleonVenvPath, order, parametersTable);
+        checkChameleonReplicaOrder(order, parametersTable,workspaceId);
+    }
+
+    /**
      * Execute chameleon order.
      *
      * @param chameleonVenvPath The virtual environment which installed chameleon path.
      * @param order             Chameleon order.
      * @param parametersTable   Parameters table.
      */
-    public void useChameleonReplicaOrder(String chameleonVenvPath, String order, Hashtable<String, String> parametersTable) {
+    public void startChameleonReplicaOrder(String chameleonVenvPath, String order, Hashtable<String, String> parametersTable) {
         if (Plan.stopPlan) {
             return;
         }
-        StringBuilder chameleonOrder = new StringBuilder(chameleonVenvPath + "venv/bin/chameleon " + order + " ");
+        StringBuilder chameleonOrder = new StringBuilder("venv/bin/chameleon " + order + " ");
         for (String key : parametersTable.keySet()) {
             chameleonOrder.append(key).append(" ").append(parametersTable.get(key)).append(" ");
         }
+        chameleonOrder = chameleonOrder.append("--debug");
+        RuntimeExecTools.executeOrder(chameleonOrder.toString(), 2000,chameleonVenvPath,PortalControl.portalWorkSpacePath + "logs/full_migration.log");
+    }
+
+    /**
+     * Check chameleon replica order.
+     *
+     * @param order           the order
+     * @param parametersTable the parameters table
+     * @param workspaceId     the workspace id
+     */
+    public void checkChameleonReplicaOrder(String order, Hashtable<String, String> parametersTable, String workspaceId) {
         try {
-            RuntimeExecTools.executeOrder(chameleonOrder.toString(), 3000);
-            String userHome = System.getProperty("user.home");
-            String chameleonConfigPath = PortalControl.toolsConfigParametersTable.get(Chameleon.PATH).replaceFirst
-                    ("~", userHome).concat("configuration/default.yml");
-            String logDir = "";
-            if (parametersTable.containsKey("--source")) {
-                logDir = "default_" + parametersTable.get("--source") + ".log";
-            } else {
-                logDir = "default_general.log";
+            if (Plan.stopPlan) {
+                return;
             }
-            String chameleonLogMysqlDir = Tools.getSingleYmlParameter("log_dir", chameleonConfigPath).replaceFirst
-                    ("~", userHome).concat(logDir);
             String endFlag = order + " finished";
-            while (true) {
+            while (!Plan.stopPlan) {
                 Thread.sleep(1000);
                 LOGGER.info(order + " running");
-                if (Tools.lastLine(chameleonLogMysqlDir).contains(endFlag)) {
+                if (Tools.lastLine(PortalControl.portalWorkSpacePath + "logs/full_migration.log").contains(endFlag)) {
                     break;
                 }
             }
@@ -222,8 +277,12 @@ public class Task {
      * @param path Path.
      */
     public void stopZookeeper(String path) {
-        RuntimeExecTools.executeOrder(path + "bin/zookeeper-server-stop.sh " + path + "config/zookeeper.properties", 3000);
-        LOGGER.info("Stop zookeeper.");
+        if(Tools.checkAnotherProcessExist("-Dpath=" + PortalControl.portalControlPath,"-Dworkspace.id=" + Plan.workspaceId)){
+            RuntimeExecTools.executeOrder(path + "bin/zookeeper-server-stop.sh " + path + "config/zookeeper.properties", 3000);
+            LOGGER.info("Stop zookeeper.");
+        }else{
+            LOGGER.info("Another portal is running.Wait for the lastest portal to stop zookeeper.");
+        }
     }
 
     /**
@@ -232,7 +291,7 @@ public class Task {
      * @param path Path.
      */
     public void runKafka(String path) {
-        RuntimeExecTools.executeOrder(path + "bin/kafka-server-start.sh -daemon " + path + "config/server.properties", 2000);
+        RuntimeExecTools.executeOrder(path + "bin/kafka-server-start.sh -daemon " + path + "config/server.properties", 8000);
         LOGGER.info("Start kafka.");
     }
 
@@ -242,8 +301,12 @@ public class Task {
      * @param path Path.
      */
     public void stopKafka(String path) {
-        RuntimeExecTools.executeOrder(path + "bin/kafka-server-stop.sh " + path + "config/server.properties", 3000);
-        LOGGER.info("Stop kafka.");
+        if(Tools.checkAnotherProcessExist("-Dpath=" + PortalControl.portalControlPath,"-Dworkspace.id=" + Plan.workspaceId)){
+            RuntimeExecTools.executeOrder(path + "bin/kafka-server-stop.sh " + path + "config/server.properties", 3000);
+            LOGGER.info("Stop kafka.");
+        }else{
+            LOGGER.info("Another portal is running.Wait for the lastest portal to stop kafka.");
+        }
     }
 
     /**
@@ -262,53 +325,96 @@ public class Task {
      * @param path Path.
      */
     public void stopKafkaSchema(String path) {
-        RuntimeExecTools.executeOrder(path + "bin/schema-registry-stop " + path + "etc/schema-registry/schema-registry.properties", 3000);
-        LOGGER.info("Stop kafkaSchemaRegistry.");
+        if(Tools.checkAnotherProcessExist("-Dpath=" + PortalControl.portalControlPath,"-Dworkspace.id=" + Plan.workspaceId)){
+            RuntimeExecTools.executeOrder(path + "bin/schema-registry-stop " + path + "etc/schema-registry/schema-registry.properties", 3000);
+            LOGGER.info("Stop kafkaSchemaRegistry.");
+        }else{
+            LOGGER.info("Another portal is running.Wait for the lastest portal to stop schema registry.");
+        }
     }
 
     /**
-     * Run kafka connect.
+     * Run kafka connect source.
      *
      * @param path Path.
      */
-    public void runKafkaConnect(String path) {
-        String configUrl = Tools.getSinglePropertiesParameter("key.converter.schema.registry.url", path + "etc/schema-registry/connect-avro-standalone.properties");
-        configUrl += "/config";
-        RuntimeExecTools.executeOrder("curl -X PUT -H \"Content-Type: application/vnd.schemaregistry.v1+json\" --data '{\"compatibility\": \"NONE\"}' " + configUrl, 3000);
-        RuntimeExecTools.executeOrder(path + "bin/connect-standalone -daemon " + path + "etc/schema-registry/connect-avro-standalone.properties " + path + "etc/kafka/mysql-source.properties " + path + "etc/kafka/mysql-sink.properties", 3000);
-        LOGGER.info("Start kafkaConnector.");
+    public void runKafkaConnectSource(String path) {
+        String[] cmdParts = new String[]{"curl","-X","PUT","-H","Content-Type: application/vnd.schemaregistry.v1+json","--data","{\"compatibility\": \"NONE\"}","http://localhost:8081/config"};
+        Tools.createFile(PortalControl.portalWorkSpacePath + "curl.log",true);
+        RuntimeExecTools.executeOrderCurrentRuntime(cmdParts,1000,PortalControl.portalWorkSpacePath + "curl.log");
+        RuntimeExecTools.executeOrder(path + "bin/connect-standalone -daemon " + PortalControl.portalWorkSpacePath + "config/debezium/connect-avro-standalone-source.properties " + PortalControl.portalWorkSpacePath + "config/debezium/mysql-source.properties", 3000);
+        LOGGER.info("Start kafkaConnector source.");
     }
 
     /**
-     * Run reverse kafka connect.
+     * Run kafka connect sink.
      *
      * @param path Path.
      */
-    public void runReverseKafkaConnect(String path) {
-        RuntimeExecTools.executeOrder(path + "bin/connect-standalone -daemon " + path + "etc/schema-registry/connect-avro-standalone.properties " + path + "etc/kafka/opengauss-source.properties " + path + "etc/kafka/opengauss-sink.properties", 5000);
+    public void runKafkaConnectSink(String path) {
+        RuntimeExecTools.executeOrder(path + "bin/connect-standalone -daemon " + PortalControl.portalWorkSpacePath + "config/debezium/connect-avro-standalone-sink.properties " + PortalControl.portalWorkSpacePath + "config/debezium/mysql-sink.properties", 3000);
+        LOGGER.info("Start kafkaConnector sink.");
+    }
+
+    /**
+     * Run reverse kafka connect source.
+     *
+     * @param path the path
+     */
+    public void runReverseKafkaConnectSource(String path) {
+        RuntimeExecTools.executeOrder(path + "bin/connect-standalone -daemon " + PortalControl.portalWorkSpacePath + "config/debezium/connect-avro-standalone-reverse-source.properties " + PortalControl.portalWorkSpacePath + "config/debezium/opengauss-source.properties", 5000);
+        LOGGER.info("Start reverseKafkaConnect.");
+    }
+
+
+    /**
+     * Run reverse kafka connect sink.
+     *
+     * @param path the path
+     */
+    public void runReverseKafkaConnectSink(String path) {
+        RuntimeExecTools.executeOrder(path + "bin/connect-standalone -daemon " + PortalControl.portalWorkSpacePath + "config/debezium/connect-avro-standalone-reverse-sink.properties " + PortalControl.portalWorkSpacePath + "config/debezium/opengauss-sink.properties", 5000);
         LOGGER.info("Start reverseKafkaConnect.");
     }
 
     /**
      * Stop kafka connect.
-     *
-     * @param path Path.
      */
-    public void stopKafkaConnect(String path) {
-        int pid = Tools.getCommandPid(taskProcessMap.get(Method.Run.CONNECT));
+    public void stopKafkaConnectSource() {
+        int pid = Tools.getCommandPid(taskProcessMap.get(Method.Run.CONNECT_SOURCE));
         if (pid != -1) {
             RuntimeExecTools.executeOrder("kill -15 " + pid, 2000);
         }
-        LOGGER.info("Stop kafkaConnect.");
+        LOGGER.info("Stop kafkaConnect source.");
+    }
+
+    /**
+     * Stop kafka connect sink.
+     */
+    public void stopKafkaConnectSink() {
+        int pid = Tools.getCommandPid(taskProcessMap.get(Method.Run.CONNECT_SINK));
+        if (pid != -1) {
+            RuntimeExecTools.executeOrder("kill -15 " + pid, 2000);
+        }
+        LOGGER.info("Stop kafkaConnect sink.");
     }
 
     /**
      * Stop reverse kafka connect.
-     *
-     * @param path Path.
      */
-    public void stopReverseKafkaConnect(String path) {
-        int pid = Tools.getCommandPid(taskProcessMap.get(Method.Run.REVERSE_CONNECT));
+    public void stopReverseKafkaConnectSource() {
+        int pid = Tools.getCommandPid(taskProcessMap.get(Method.Run.REVERSE_CONNECT_SOURCE));
+        if (pid != -1) {
+            RuntimeExecTools.executeOrder("kill -15 " + pid, 2000);
+        }
+        LOGGER.info("Stop reverseKafkaConnect.");
+    }
+
+    /**
+     * Stop reverse kafka connect sink.
+     */
+    public void stopReverseKafkaConnectSink() {
+        int pid = Tools.getCommandPid(taskProcessMap.get(Method.Run.REVERSE_CONNECT_SINK));
         if (pid != -1) {
             RuntimeExecTools.executeOrder("kill -15 " + pid, 2000);
         }
@@ -321,7 +427,7 @@ public class Task {
      * @param path Path.
      */
     public void runDataCheckSink(String path) {
-        RuntimeExecTools.executeOrder("nohup java -Dspring.config.additional-location=" + path + "config/application-sink.yml -jar " + path + "datachecker-extract-0.0.1.jar --spring.profiles.active=sink > " + path + "logs/sink.log 2>&1 &", 3000);
+        RuntimeExecTools.executeOrder("nohup java -Dspring.config.additional-location=" + PortalControl.portalWorkSpacePath + "config/datacheck/application-sink.yml -jar " + path + "datachecker-extract-0.0.1.jar --spring.profiles.active=sink > " + PortalControl.portalWorkSpacePath + "logs/sink.log 2>&1 &", 5000);
         LOGGER.info("Start datacheck sink.");
     }
 
@@ -331,7 +437,7 @@ public class Task {
      * @param path Path.
      */
     public void runDataCheckSource(String path) {
-        RuntimeExecTools.executeOrder("nohup java -Dspring.config.additional-location=" + path + "config/application-source.yml -jar " + path + "datachecker-extract-0.0.1.jar --spring.profiles.active=source > " + path + "logs/source.log 2>&1 &", 3000);
+        RuntimeExecTools.executeOrder("nohup java -Dspring.config.additional-location=" + PortalControl.portalWorkSpacePath + "config/datacheck/application-source.yml -jar " + path + "datachecker-extract-0.0.1.jar --spring.profiles.active=source > " + PortalControl.portalWorkSpacePath + "logs/source.log 2>&1 &", 5000);
         LOGGER.info("Start datacheck source.");
     }
 
@@ -341,7 +447,7 @@ public class Task {
      * @param path Path.
      */
     public void runDataCheck(String path) {
-        RuntimeExecTools.executeOrder("nohup java -Dspring.config.additional-location=" + path + "config/application.yml -jar " + path + "datachecker-check-0.0.1.jar > " + path + "logs/checkResult.log 2>&1 &", 3000);
+        RuntimeExecTools.executeOrder("nohup java -Dspring.config.additional-location=" + PortalControl.portalWorkSpacePath + "config/datacheck/application.yml -jar " + path + "datachecker-check-0.0.1.jar > " + PortalControl.portalWorkSpacePath + "logs/checkResult.log 2>&1 &", 5000);
         LOGGER.info("Start datacheck.");
     }
 
@@ -350,7 +456,7 @@ public class Task {
      */
     public void stopDataCheck() {
         int pid = -1;
-        pid = Tools.getCommandPid("datachecker-check-0.0.1.jar");
+        pid = Tools.getCommandPid(taskProcessMap.get(Method.Run.CHECK));
         if (pid != -1) {
             RuntimeExecTools.executeOrder("kill -15 " + pid, 3000);
         }
@@ -362,7 +468,7 @@ public class Task {
      */
     public void stopDataCheckSink() {
         int pid = -1;
-        pid = Tools.getCommandPid("datachecker-extract-0.0.1.jar --spring.profiles.active=sink");
+        pid = Tools.getCommandPid(taskProcessMap.get(Method.Run.CHECK_SINK));
         if (pid != -1) {
             RuntimeExecTools.executeOrder("kill -15 " + pid, 3000);
         }
@@ -374,7 +480,7 @@ public class Task {
      */
     public void stopDataCheckSource() {
         int pid = -1;
-        pid = Tools.getCommandPid("datachecker-extract-0.0.1.jar --spring.profiles.active=source");
+        pid = Tools.getCommandPid(taskProcessMap.get(Method.Run.CHECK_SOURCE));
         if (pid != -1) {
             RuntimeExecTools.executeOrder("kill -15 " + pid, 3000);
         }
@@ -421,6 +527,7 @@ public class Task {
                 LOGGER.error("Please set tasks in a particular sequence.");
                 return false;
             }
+            addCheckTask(taskList);
         } else {
             LOGGER.error("The taskList is null.");
             return false;
@@ -460,5 +567,40 @@ public class Task {
         }
         return true;
     }
+
+    private static void addCheckTask(List<String> taskList){
+        for (String task:taskList) {
+            switch (task){
+                case "start mysql full migration":{
+                    Plan.checkTaskList.add(new CheckTaskMysqlFullMigration());
+                    break;
+                }
+                case "start mysql full migration datacheck":{
+                    Plan.checkTaskList.add(new CheckTaskFullDatacheck());
+                    break;
+                }
+                case "start mysql incremental migration":{
+                    Plan.checkTaskList.add(new CheckTaskIncrementalMigration());
+                    break;
+                }
+                case "start mysql incremental migration datacheck": {
+                    Plan.checkTaskList.add(new CheckTaskIncrementalDatacheck());
+                    break;
+                }
+                case "start mysql reverse migration": {
+                    Plan.checkTaskList.add(new CheckTaskReverseMigration());
+                    break;
+                }
+                case "start mysql reverse migration datacheck":{
+                    Plan.checkTaskList.add(new CheckTaskReverseDatacheck());
+                    break;
+                }
+                default:{
+                    break;
+                }
+            }
+        }
+    }
+
 }
 

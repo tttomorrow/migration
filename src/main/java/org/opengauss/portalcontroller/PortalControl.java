@@ -22,21 +22,20 @@ import org.opengauss.portalcontroller.constant.Mysql;
 import org.opengauss.portalcontroller.constant.Offset;
 import org.opengauss.portalcontroller.constant.Opengauss;
 import org.opengauss.portalcontroller.constant.Regex;
+import org.opengauss.portalcontroller.constant.Status;
+import org.opengauss.portalcontroller.status.ThreadStatusController;
 import org.slf4j.LoggerFactory;
 
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.nio.channels.FileChannel;
-import java.nio.channels.FileLock;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Hashtable;
 import java.util.List;
+import java.util.Objects;
 import java.util.Properties;
 import java.util.Scanner;
 import java.util.Set;
@@ -79,6 +78,11 @@ public class PortalControl {
      * The portal control path.
      */
     public static String portalControlPath = "";
+
+    /**
+     * The constant portalWorkSpacePath.
+     */
+    public static String portalWorkSpacePath = "";
 
     /**
      * The path of the file which contains the path of the migration tools.
@@ -133,7 +137,30 @@ public class PortalControl {
     /**
      * Command.
      */
-    public static String command = "";
+    public static String latestCommand = "";
+
+    /**
+     * The constant status.
+     */
+    public static int status = Status.START_FULL_MIGRATION;
+
+    /**
+     * The constant fullDatacheckFinished.
+     */
+    public static boolean fullDatacheckFinished = false;
+
+    public static int startPort = 10000;
+
+//    /**
+//     * The constant availablePortList.
+//     */
+//    public static ArrayList<Integer> availablePortList = new ArrayList<>();
+
+    /**
+     * The constant threadGetOrder.
+     */
+    public static ThreadGetOrder threadGetOrder = new ThreadGetOrder();
+
 
     /**
      * Main method.The first parameter is path of portal control.
@@ -141,100 +168,78 @@ public class PortalControl {
      * @param args args
      */
     public static void main(String[] args) {
-        try {
-            File portalFile = new File(portalControlPath + "portal.lock");
-            FileOutputStream out = new FileOutputStream(portalFile);
-            FileChannel channel = out.getChannel();
-            FileLock lock = null;
-            if (null == lock) {
-                try {
-                    lock = channel.tryLock();
-                    Tools.cleanInputOrder();
-                    initPlanList();
-                    initCommandLineParameters();
-                    initActionHandlerHashMap();
-                    initCommandHandlerHashMap();
-                    String path = commandLineParameterStringMap.get(Command.Parameters.PATH);
-                    portalControlPath = path;
-                    toolsConfigPath = path + "config/toolspath.properties";
-                    migrationConfigPath = path + "config/migrationConfig.properties";
-                    checkPath();
-                    initHashTable();
-                    Task.initTaskProcessMap();
-                    Task.initRunTaskHandlerHashMap();
-                    Task.initStopTaskHandlerHashMap();
-                    Tools.readStatus();
-                    threadCheckProcess = new ThreadCheckProcess();
-                    threadCheckProcess.setName("threadCheckProcess");
-                    threadCheckProcess.start();
-                    noinput = PortalControl.commandLineParameterStringMap.get(Command.Parameters.SKIP).equals("true");
-                    if (noinput) {
-                        String order = commandLineParameterStringMap.get(Command.Parameters.ORDER);
-                        if (order != null) {
-                            String[] orders = order.split("_");
-                            String newOrder = orders[0];
-                            for (int i = 1; i < orders.length; i++) {
-                                newOrder += " " + orders[i];
-                            }
-                            if (commandHandlerHashMap.containsKey(newOrder)) {
-                                EventHandler eventHandler = commandHandlerHashMap.get(newOrder);
-                                eventHandler.handle(newOrder);
-                            } else {
-                                LOGGER.warn("Invalid command.Please input help to get valid command.");
-                            }
-                        } else {
-                            String action = commandLineParameterStringMap.get(Command.Parameters.ACTION);
-                            actionHandlerHashMap.get(action).handle(action);
-                        }
-                        while (true) {
-                            try {
-                                Thread.sleep(1000);
-                                if (Tools.readInputOrder() > PortalControl.commandCounts) {
-                                    if (PortalControl.command.equals("exit")) {
-                                        Tools.cleanInputOrder();
-                                        break;
-                                    } else if (commandHandlerHashMap.containsKey(PortalControl.command)) {
-                                        EventHandler eventHandler = commandHandlerHashMap.get(PortalControl.command);
-                                        eventHandler.handle(PortalControl.command);
-                                        PortalControl.commandCounts = Tools.readInputOrder();
-                                    } else {
-                                        LOGGER.warn("Invalid command.Please input help to get valid command.");
-                                    }
-                                }
-                            } catch (InterruptedException e) {
-                                LOGGER.error("Interrupted exception occurred in reading input order.");
-                            }
-                        }
-                    } else {
-                        Scanner sc = new Scanner(System.in);
-                        String command = "";
-                        while (true) {
-                           LOGGER.info("Please input command.");
-                            command = sc.nextLine().trim().replaceAll("\n", "");
-                            if (command.equals("exit")) {
-                                break;
-                            } else if (commandHandlerHashMap.containsKey(command)) {
-                                EventHandler eventHandler = commandHandlerHashMap.get(command);
-                                eventHandler.handle(command);
-                            } else {
-                                LOGGER.warn("Invalid command.Please input help to get valid command.");
-                            }
-                        }
-                    }
-                    ThreadCheckProcess.exit = true;
-                } catch (Exception e) {
-                    LOGGER.error("Get lock failed.");
-                    return;
-                }
-                lock.release();
-                channel.close();
-                out.close();
-            }
-        } catch (FileNotFoundException e) {
-            throw new RuntimeException(e);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
+//        int startPort = 10000;
+//        if (System.getProperty("start.port") != null) {
+//            startPort = Integer.parseInt(System.getProperty("start.port"));
+//        }
+//        PortalControl.availablePortList = Tools.getAvailablePorts(startPort, 7, 30);
+        File file = new File("/data1/lt/test/portal/workspace");
+        int workspaces = Objects.requireNonNull(file.listFiles()).length;
+        startPort += workspaces * 50;
+        Tools.cleanInputOrder();
+        initPlanList();
+        initParametersRegexMap();
+        initCommandLineParameters();
+        initActionHandlerHashMap();
+        initCommandHandlerHashMap();
+        String path = commandLineParameterStringMap.get(Command.Parameters.PATH);
+        String workspaceId = commandLineParameterStringMap.get(Command.Parameters.ID);
+        portalControlPath = path;
+        if (workspaceId.equals("")) {
+            portalWorkSpacePath = path;
+        } else {
+            portalWorkSpacePath = path + "workspace/" + workspaceId + "/";
         }
+        toolsConfigPath = portalWorkSpacePath + "config/toolspath.properties";
+        migrationConfigPath = portalWorkSpacePath + "config/migrationConfig.properties";
+        Plan.createWorkspace(workspaceId);
+        checkPath();
+        Task.initTaskProcessMap();
+        threadCheckProcess = new ThreadCheckProcess();
+        threadCheckProcess.setName("threadCheckProcess");
+        threadCheckProcess.start();
+        ThreadStatusController threadStatusController = new ThreadStatusController();
+        threadStatusController.setWorkspaceId(workspaceId);
+        threadStatusController.start();
+        noinput = PortalControl.commandLineParameterStringMap.get(Command.Parameters.SKIP).equals("true");
+        threadGetOrder.start();
+        if (noinput) {
+            String order = commandLineParameterStringMap.get(Command.Parameters.ORDER);
+            if (order != null) {
+                String[] orders = order.split("_");
+                String newOrder = orders[0];
+                for (int i = 1; i < orders.length; i++) {
+                    newOrder += " " + orders[i];
+                }
+                if (commandHandlerHashMap.containsKey(newOrder)) {
+                    EventHandler eventHandler = commandHandlerHashMap.get(newOrder);
+                    eventHandler.handle(newOrder);
+                } else {
+                    LOGGER.warn("Invalid command.Please input help to get valid command.");
+                }
+            } else {
+                String action = commandLineParameterStringMap.get(Command.Parameters.ACTION);
+                actionHandlerHashMap.get(action).handle(action);
+            }
+        } else {
+            Scanner sc = new Scanner(System.in);
+            String command = "";
+            while (true) {
+                LOGGER.info("Please input command.");
+                command = sc.nextLine().trim().replaceAll("\n", "");
+                if (command.equals("exit")) {
+                    break;
+                } else if (commandHandlerHashMap.containsKey(command)) {
+                    EventHandler eventHandler = commandHandlerHashMap.get(command);
+                    eventHandler.handle(command);
+                } else {
+                    LOGGER.warn("Invalid command.Please input help to get valid command.");
+                }
+            }
+        }
+        threadCheckProcess.exit = true;
+        threadGetOrder.exit = true;
+        threadStatusController.exit = true;
     }
 
     /**
@@ -272,12 +277,17 @@ public class PortalControl {
         planList.put("plan1", plan1);
         List<String> plan2 = new ArrayList<>();
         plan2.add("start mysql full migration");
+        plan2.add("start mysql full migration datacheck");
         plan2.add("start mysql incremental migration");
+        plan2.add("start mysql incremental migration datacheck");
         planList.put("plan2", plan2);
         List<String> plan3 = new ArrayList<>();
         plan3.add("start mysql full migration");
         plan3.add("start mysql full migration datacheck");
         plan3.add("start mysql incremental migration");
+        plan3.add("start mysql incremental migration datacheck");
+        plan3.add("start mysql reverse migration");
+        plan3.add("start mysql reverse migration datacheck");
         planList.put("plan3", plan3);
     }
 
@@ -327,11 +337,10 @@ public class PortalControl {
             LOGGER.error("IO exception occurred in loading the toolspath.properties.");
         }
         for (Object key : pps.keySet()) {
-            String value = pps.getProperty(key.toString());
-            if (value.matches(PortalControl.parametersRegexMap.get(key)) || parametersRegexMap.get(key).equals("")) {
-                PortalControl.toolsConfigParametersTable.put(key.toString(), pps.getProperty(key.toString()));
+            if (commandLineParameterStringMap.containsKey(key)) {
+                PortalControl.toolsConfigParametersTable.put(String.valueOf(key), commandLineParameterStringMap.get(key));
             } else {
-                LOGGER.error("Invalid value.Please check the parameter of " + key);
+                PortalControl.toolsConfigParametersTable.put(String.valueOf(key), String.valueOf(pps.getProperty(String.valueOf(key))));
             }
         }
         pps.clear();
@@ -340,10 +349,16 @@ public class PortalControl {
         } catch (IOException e) {
             LOGGER.error("IO exception occurred in loading the migrationConfig.properties.");
         }
-        for (Object object : pps.keySet()) {
-            PortalControl.toolsMigrationParametersTable.put(object.toString(), pps.getProperty(object.toString()));
+        for (Object key : pps.keySet()) {
+            if (commandLineParameterStringMap.containsKey(key)) {
+                PortalControl.toolsMigrationParametersTable.put(String.valueOf(key), commandLineParameterStringMap.get(key));
+            } else {
+                PortalControl.toolsMigrationParametersTable.put(String.valueOf(key), String.valueOf(pps.getProperty(String.valueOf(key))));
+            }
         }
         pps.clear();
+        Tools.changePropertiesParameters(PortalControl.toolsConfigParametersTable,PortalControl.portalWorkSpacePath + "config/toolspath.properties");
+        Tools.changePropertiesParameters(PortalControl.toolsMigrationParametersTable,PortalControl.portalWorkSpacePath + "config/migrationConfig.properties");
     }
 
     /**
@@ -386,8 +401,8 @@ public class PortalControl {
         migrationParametersSet.put(Opengauss.DATABASE_PORT, Tools.checkInputString(sc, Regex.PORT));
         LOGGER.info("Please input opengauss database name:");
         migrationParametersSet.put(Opengauss.DATABASE_NAME, Tools.checkInputString(sc, ""));
-        String opengaussDatabaseSchema = mysqlDatabaseName;
-        migrationParametersSet.put(Opengauss.DATABASE_SCHEMA, opengaussDatabaseSchema);
+        LOGGER.info("Please input opengauss database schema:");
+        migrationParametersSet.put(Opengauss.DATABASE_SCHEMA, Tools.checkInputString(sc, ""));
         PortalControl.toolsMigrationParametersTable = migrationParametersSet;
         Tools.changePropertiesParameters(migrationParametersSet, migrationConfigPath);
         Tools.changeMigrationParameters(migrationParametersSet);
@@ -567,6 +582,8 @@ public class PortalControl {
 
     /**
      * Start default plan with plan name in default plan list.
+     *
+     * @param plan the plan
      */
     public static void startDefaultPlan(String plan) {
         if (!Plan.isPlanRunnable) {
@@ -596,6 +613,8 @@ public class PortalControl {
 
     /**
      * Start plan which has only one task.
+     *
+     * @param task the task
      */
     public static void startSingleTaskPlan(String task) {
         if (!Plan.isPlanRunnable) {
@@ -610,20 +629,20 @@ public class PortalControl {
      * Start plan.
      */
     public static void startPlan() {
+        String workspaceId = commandLineParameterStringMap.get(Command.Parameters.ID);
         Tools.generatePlanHistory(taskList);
         if (!Task.checkPlan(taskList)) {
+            Plan.installPlanPackages();
             LOGGER.error("Invalid plan.");
             return;
         }
-        threadExecPlan = new ThreadExecPlan();
-        threadExecPlan.setName("threadExecPlan");
-        threadExecPlan.start();
+        Plan.getInstance(workspaceId).execPlan(PortalControl.taskList);
     }
 
     /**
      * Stop plan.
      */
-    public static void stopPlan() {
+    public static void stopPlanCheck() {
         if (!PortalControl.noinput) {
             LOGGER.warn("Please input yes to stop current plan.");
             Scanner sc = new Scanner(System.in);
@@ -654,14 +673,6 @@ public class PortalControl {
             LOGGER.error("portalControlPath not exist");
             return false;
         }
-        if (!new File(toolsConfigPath).exists()) {
-            LOGGER.error("toolsControlPath not exist");
-            return false;
-        }
-        if (!new File(migrationConfigPath).exists()) {
-            LOGGER.error("migrationConfigPath not exist");
-            return false;
-        }
         return true;
     }
 
@@ -685,14 +696,26 @@ public class PortalControl {
      */
     public static void initCommandLineParameters() {
         commandLineParameterStringMap.clear();
-        setCommandLineParameters(Command.Parameters.PATH);
-        setCommandLineParameters(Command.Parameters.ACTION);
-        setCommandLineParameters(Command.Parameters.TYPE);
-        setCommandLineParameters(Command.Parameters.MIGRATION_TYPE);
-        setCommandLineParameters(Command.Parameters.PARAMETER);
-        setCommandLineParameters(Command.Parameters.SKIP);
-        setCommandLineParameters(Command.Parameters.CHECK);
-        setCommandLineParameters(Command.Parameters.ORDER);
+        setCommandLineParameters(Command.Parameters.PATH, "");
+        setCommandLineParameters(Command.Parameters.ACTION, "");
+        setCommandLineParameters(Command.Parameters.TYPE, "");
+        setCommandLineParameters(Command.Parameters.MIGRATION_TYPE, "");
+        setCommandLineParameters(Command.Parameters.PARAMETER, "");
+        setCommandLineParameters(Command.Parameters.SKIP, "");
+        setCommandLineParameters(Command.Parameters.CHECK, "");
+        setCommandLineParameters(Command.Parameters.ORDER, "");
+        setCommandLineParameters(Command.Parameters.ID, "1");
+        setCommandLineParameters(Mysql.DATABASE_HOST, "127.0.0.1");
+        setCommandLineParameters(Mysql.USER, "test");
+        setCommandLineParameters(Mysql.DATABASE_NAME, "test");
+        setCommandLineParameters(Mysql.PASSWORD, "123456");
+        setCommandLineParameters(Mysql.DATABASE_PORT, "3306");
+        setCommandLineParameters(Opengauss.DATABASE_HOST, "127.0.0.1");
+        setCommandLineParameters(Opengauss.USER, "test");
+        setCommandLineParameters(Opengauss.PASSWORD, "123456");
+        setCommandLineParameters(Opengauss.DATABASE_SCHEMA, "test");
+        setCommandLineParameters(Opengauss.DATABASE_NAME, "postgres");
+        setCommandLineParameters(Opengauss.DATABASE_PORT, "5432");
     }
 
     /**
@@ -700,12 +723,12 @@ public class PortalControl {
      *
      * @param parameter Parameter of commandline.
      */
-    private static void setCommandLineParameters(String parameter) {
+    private static void setCommandLineParameters(String parameter, String defaultValue) {
         String temp = System.getProperty(parameter);
         if (temp != null) {
             commandLineParameterStringMap.put(parameter, temp);
         } else {
-            commandLineParameterStringMap.put(parameter, "");
+            commandLineParameterStringMap.put(parameter, defaultValue);
         }
     }
 
@@ -719,13 +742,17 @@ public class PortalControl {
         commandHandlerHashMap.put(Command.Install.Mysql.IncrementalMigration.ONLINE, (event) -> InstallMigrationTools.installIncrementalMigrationToolsOnline());
         commandHandlerHashMap.put(Command.Install.Mysql.IncrementalMigration.OFFLINE, (event) -> InstallMigrationTools.installIncrementalMigrationToolsOffline());
         commandHandlerHashMap.put(Command.Install.Mysql.IncrementalMigration.DEFAULT, (event) -> InstallMigrationTools.installIncrementMigrationTools());
+        commandHandlerHashMap.put(Command.Install.Mysql.ReverseMigration.ONLINE, (event) -> InstallMigrationTools.installReverseMigrationToolsOnline());
+        commandHandlerHashMap.put(Command.Install.Mysql.ReverseMigration.OFFLINE, (event) -> InstallMigrationTools.installReverseMigrationToolsOffline());
+        commandHandlerHashMap.put(Command.Install.Mysql.ReverseMigration.DEFAULT, (event) -> InstallMigrationTools.installReverseMigrationTools());
         commandHandlerHashMap.put(Command.Install.Mysql.Check.ONLINE, (event) -> InstallMigrationTools.installDatacheckToolsOnline());
         commandHandlerHashMap.put(Command.Install.Mysql.Check.OFFLINE, (event) -> InstallMigrationTools.installDatacheckToolsOffline());
         commandHandlerHashMap.put(Command.Install.Mysql.Check.DEFAULT, (event) -> InstallMigrationTools.installDatacheckTools());
         commandHandlerHashMap.put(Command.Install.Mysql.All.DEFAULT, (event) -> InstallMigrationTools.installMigrationTools());
         commandHandlerHashMap.put(Command.Uninstall.Mysql.FULL, (event) -> InstallMigrationTools.uninstallMysqlFullMigrationTools());
         commandHandlerHashMap.put(Command.Uninstall.Mysql.INCREMENTAL, (event) -> InstallMigrationTools.uninstallIncrementalMigrationTools());
-        commandHandlerHashMap.put(Command.Uninstall.Mysql.CHECK, (event) -> InstallMigrationTools.installDatacheckTools());
+        commandHandlerHashMap.put(Command.Uninstall.Mysql.CHECK, (event) -> InstallMigrationTools.uninstallDatacheckTools());
+        commandHandlerHashMap.put(Command.Uninstall.Mysql.REVERSE, (event) -> InstallMigrationTools.uninstallReverseMigrationTools());
         commandHandlerHashMap.put(Command.Uninstall.Mysql.ALL, (event) -> InstallMigrationTools.uninstallMigrationTools());
         commandHandlerHashMap.put(Command.Start.Mysql.FULL, (event) -> startSingleTaskPlan(Command.Start.Mysql.FULL));
         commandHandlerHashMap.put(Command.Start.Mysql.INCREMENTAL, (event) -> startSingleTaskPlan(Command.Start.Mysql.INCREMENTAL));
@@ -737,13 +764,21 @@ public class PortalControl {
         commandHandlerHashMap.put(Command.Start.Plan.PLAN2, (event) -> startDefaultPlan("plan2"));
         commandHandlerHashMap.put(Command.Start.Plan.PLAN3, (event) -> startDefaultPlan("plan3"));
         commandHandlerHashMap.put(Command.Start.Plan.CURRENT, (event) -> startCurrentPlan());
+        commandHandlerHashMap.put(Command.Action.HELP, (event) -> help());
         commandHandlerHashMap.put(Command.Show.PLAN, (event) -> showPlanList());
         commandHandlerHashMap.put(Command.Show.STATUS, (event) -> showStatus());
         commandHandlerHashMap.put(Command.Show.INFORMATION, (event) -> showMigrationParameters());
         commandHandlerHashMap.put(Command.Show.PARAMETERS, (event) -> showParameters());
-        commandHandlerHashMap.put(Command.Stop.PLAN, (event) -> stopPlan());
+        commandHandlerHashMap.put(Command.Stop.PLAN, (event) -> Tools.writeInputOrder(Command.Stop.PLAN));
+        commandHandlerHashMap.put(Command.Stop.INCREMENTAL_MIGRATION, (event) -> Tools.writeInputOrder(Command.Stop.INCREMENTAL_MIGRATION));
+        commandHandlerHashMap.put(Command.Stop.REVERSE_MIGRATION, (event) -> Tools.writeInputOrder(Command.Stop.REVERSE_MIGRATION));
+        commandHandlerHashMap.put(Command.Run.INCREMENTAL_MIGRATION, (event) -> Tools.writeInputOrder(Command.Run.INCREMENTAL_MIGRATION));
+        commandHandlerHashMap.put(Command.Run.REVERSE_MIGRATION, (event) -> Tools.writeInputOrder(Command.Run.REVERSE_MIGRATION));
     }
 
+    /**
+     * Init parameters regex map.
+     */
     public static void initParametersRegexMap() {
         parametersRegexMap.put(Chameleon.PATH, Regex.FOLDER_PATH);
         parametersRegexMap.put(Chameleon.VENV_PATH, Regex.FOLDER_PATH);
@@ -779,15 +814,20 @@ public class PortalControl {
         parametersRegexMap.put(Opengauss.DATABASE_NAME, Regex.NAME);
         parametersRegexMap.put(Opengauss.DATABASE_PORT, Regex.PORT);
         parametersRegexMap.put(Opengauss.DATABASE_HOST, Regex.IP);
-        parametersRegexMap.put(Offset.FILE,Regex.OFFSET_FILE);
-        parametersRegexMap.put(Offset.GTID,Regex.OFFSET_GTID);
-        parametersRegexMap.put(Offset.POSITION,Regex.POSITION);
+        parametersRegexMap.put(Offset.FILE, Regex.OFFSET_FILE);
+        parametersRegexMap.put(Offset.GTID, Regex.OFFSET_GTID);
+        parametersRegexMap.put(Offset.POSITION, Regex.POSITION);
     }
 
     /**
      * Interface eventHandler.There is only one method.Use the method to execute the method in the lambda expression.
      */
     public interface EventHandler {
+        /**
+         * Handle.
+         *
+         * @param str the str
+         */
         void handle(String str);
     }
 }

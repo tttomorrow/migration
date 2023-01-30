@@ -39,7 +39,7 @@ public class RunningTaskThread {
     /**
      * Init a instance of RunningTaskThread with parameter methodname and processname.
      *
-     * @param methodName The method name.
+     * @param methodName  The method name.
      * @param processName The process name.
      */
     public RunningTaskThread(String methodName, String processName) {
@@ -50,6 +50,10 @@ public class RunningTaskThread {
 
     /**
      * Init a instance of RunningTaskThread with parameter methodname,processname,pid and tasklist.
+     *
+     * @param methodName  the method name
+     * @param processName the process name
+     * @param pid         the pid
      */
     public RunningTaskThread(String methodName, String processName,int pid) {
         this.methodName = methodName;
@@ -59,6 +63,8 @@ public class RunningTaskThread {
 
     /**
      * Get pid.
+     *
+     * @return the pid
      */
     public int getPid() {
         return pid;
@@ -76,7 +82,7 @@ public class RunningTaskThread {
     /**
      * Get method name.
      *
-     * @return methodName
+     * @return methodName method name
      */
     public String getMethodName() {
         return methodName;

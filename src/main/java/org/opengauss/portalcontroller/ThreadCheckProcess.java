@@ -26,7 +26,10 @@ import org.slf4j.LoggerFactory;
  */
 public class ThreadCheckProcess extends Thread implements Runnable {
     private static final Logger LOGGER = LoggerFactory.getLogger(ThreadCheckProcess.class);
-    public static boolean exit = false;
+    /**
+     * The Exit.
+     */
+    public boolean exit = false;
 
     /**
      * Run.Check if migration tools are running.
@@ -44,5 +47,4 @@ public class ThreadCheckProcess extends Thread implements Runnable {
             }
         }
     }
-
 }

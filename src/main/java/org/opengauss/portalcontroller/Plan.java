@@ -14,12 +14,8 @@
  */
 package org.opengauss.portalcontroller;
 
-import org.opengauss.portalcontroller.constant.Chameleon;
-import org.opengauss.portalcontroller.constant.Check;
-import org.opengauss.portalcontroller.constant.Command;
+import org.opengauss.portalcontroller.check.*;
 import org.opengauss.portalcontroller.constant.Debezium;
-import org.opengauss.portalcontroller.constant.Method;
-import org.opengauss.portalcontroller.constant.MigrationParameters;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -35,8 +31,9 @@ import java.util.Hashtable;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
-import static org.opengauss.portalcontroller.PortalControl.noinput;
+import static org.opengauss.portalcontroller.PortalControl.initHashTable;
 import static org.opengauss.portalcontroller.PortalControl.portalControlPath;
+import static org.opengauss.portalcontroller.PortalControl.portalWorkSpacePath;
 
 
 /**
@@ -57,6 +54,25 @@ public final class Plan {
     private static final Logger LOGGER = LoggerFactory.getLogger(Plan.class);
     private static String currentTask = "";
     /**
+     * The constant workspaceId.
+     */
+    public static String workspaceId = "";
+    /**
+     * The constant workspacePath.
+     */
+    public static String workspacePath = "";
+
+
+    /**
+     * Sets workspace id.
+     *
+     * @param workspaceId the workspace id
+     */
+    public static void setWorkspaceId(String workspaceId) {
+        Plan.workspaceId = workspaceId;
+    }
+
+    /**
      * Get currentTask.
      *
      * @return String currentTask.
@@ -64,6 +80,7 @@ public final class Plan {
     public static String getCurrentTask() {
         return currentTask;
     }
+
     /**
      * Set currentTask.
      *
@@ -94,13 +111,34 @@ public final class Plan {
     public static boolean stopPlan = false;
 
     /**
-     * Get a instance of class plan.
+     * The constant stopIncrementalMigration.
      */
-    public static Plan getInstance() {
+    public static boolean stopIncrementalMigration = false;
+    /**
+     * The constant stopReverseMigration.
+     */
+    public static boolean stopReverseMigration = false;
+    /**
+     * The constant runReverseMigration.
+     */
+    public static boolean runReverseMigration = false;
+    /**
+     * The constant runIncrementalMigration.
+     */
+    public static boolean runIncrementalMigration = false;
+
+    /**
+     * Get a instance of class plan.
+     *
+     * @param workspaceID the workspace id
+     * @return the instance
+     */
+    public static Plan getInstance(String workspaceID) {
         if (plan == null) {
             synchronized (Plan.class) {
                 if (plan == null) {
                     plan = new Plan();
+                    Plan.setWorkspaceId(workspaceID);
                 }
             }
         }
@@ -110,7 +148,7 @@ public final class Plan {
     /**
      * Get running threads list.
      *
-     * @return runningTaskThreadsList
+     * @return runningTaskThreadsList running task threads list
      */
     public static List<RunningTaskThread> getRunningTaskThreadsList() {
         return runningTaskThreadsList;
@@ -126,189 +164,78 @@ public final class Plan {
     }
 
     /**
+     * The constant checkTaskList.
+     */
+    public static List<CheckTask> checkTaskList = new ArrayList<>();
+
+
+    /**
      * Execute plan.
      *
-     * @param taskList          The task list of the plan.
+     * @param taskList The task list of the plan.
      */
     public void execPlan(List<String> taskList) {
-        initTaskHandlerHashMap();
-        Task.initTaskProcessMap();
         Task.initRunTaskHandlerHashMap();
         Task.initStopTaskHandlerHashMap();
         PortalControl.showMigrationParameters();
         if (isPlanRunnable) {
             isPlanRunnable = false;
-            for (String taskName : taskList) {
-                Plan.setCurrentTask(taskName);
-                PortalControl.EventHandler eventHandler = taskHandlerHashMap.get(taskName);
-                if (stopPlan) {
-                    LOGGER.warn("Please wait for stopping plan.Don't restart plan frequently.");
-                    break;
+            CheckTaskMysqlFullMigration checkTaskMysqlFullMigration = new CheckTaskMysqlFullMigration();
+            CheckTaskFullDatacheck checkTaskFullDatacheck = new CheckTaskFullDatacheck();
+            CheckTaskIncrementalMigration checkTaskIncrementalMigration = new CheckTaskIncrementalMigration();
+            CheckTaskReverseMigration checkTaskReverseMigration = new CheckTaskReverseMigration();
+            CheckTaskIncrementalDatacheck checkTaskIncrementalDatacheck = new CheckTaskIncrementalDatacheck();
+            CheckTaskReverseDatacheck checkTaskReverseDatacheck = new CheckTaskReverseDatacheck();
+            if (taskList.contains("start mysql full migration")) {
+                checkTaskMysqlFullMigration.prepareWork(workspaceId);
+            }
+            if (taskList.contains("start mysql incremental migration")) {
+                checkTaskIncrementalMigration.prepareWork(workspaceId);
+            }
+            if (taskList.contains("start mysql full migration")) {
+                checkTaskMysqlFullMigration.start(workspaceId);
+            }
+            if (taskList.contains("start mysql full migration datacheck")) {
+                checkTaskFullDatacheck.prepareWork(workspaceId);
+                checkTaskFullDatacheck.start(workspaceId);
+            }
+            if (taskList.contains("start mysql incremental migration")) {
+                while (true) {
+                    checkTaskIncrementalMigration.start(workspaceId);
+                    if (taskList.contains("start mysql incremental migration datacheck")) {
+                        checkTaskIncrementalDatacheck.prepareWork(workspaceId);
+                        checkTaskIncrementalDatacheck.start(workspaceId);
+                    }
+                    Tools.waitForIncrementalSignal("Incremental migration has stopped.");
+                    if(runReverseMigration || stopPlan) {
+                        break;
+                    }
+                    if(runIncrementalMigration){
+                        checkTaskIncrementalMigration.prepareWork(workspaceId);
+                    }
                 }
-                eventHandler.handle(taskName);
             }
-            while (!stopPlan) {
-                try {
-                    Thread.sleep(1000);
-                } catch (InterruptedException e) {
-                    LOGGER.error("Interrupted exception occurred in running mysql migraiton.");
+            if (taskList.contains("start mysql reverse migration") && !stopPlan) {
+                while (true) {
+                    checkTaskReverseMigration.prepareWork(workspaceId);
+                    checkTaskReverseMigration.start(workspaceId);
+                    if (taskList.contains("start mysql reverse migration datacheck")) {
+                        checkTaskReverseDatacheck.prepareWork(workspaceId);
+                        checkTaskReverseDatacheck.start(workspaceId);
+                    }
+                    Tools.waitForReverseSignal("Reverse migration has stopped.");
+                    if(stopPlan){
+                        break;
+                    }
                 }
             }
-            if (stopPlan) {
-                Plan.stopPlanThreads();
-            }
-            isPlanRunnable = true;
-
+            Plan.stopPlan = true;
+            Plan.stopPlanThreads();
+            Plan.clean();
+            LOGGER.info("Plan finished.");
+            PortalControl.threadCheckProcess.exit = true;
         } else {
             LOGGER.error("There is a plan running.Please stop current plan or wait.");
-        }
-
-    }
-
-    /**
-     * Init taskHandler hashmap.
-     */
-    public static void initTaskHandlerHashMap() {
-        taskHandlerHashMap.clear();
-        taskHandlerHashMap.put(Command.Start.Mysql.FULL, (event) -> startMysqlFullMigration());
-        taskHandlerHashMap.put(Command.Start.Mysql.FULL_CHECK, (event) -> startMysqlFullMigrationDatacheck());
-        taskHandlerHashMap.put(Command.Start.Mysql.INCREMENTAL, (event) -> startMysqlIncrementalMigration());
-        taskHandlerHashMap.put(Command.Start.Mysql.INCREMENTAL_CHECK, (event) -> startMysqlIncrementMigrationDatacheck());
-        taskHandlerHashMap.put(Command.Start.Mysql.REVERSE, (event) -> startMysqlReverseMigration());
-        taskHandlerHashMap.put(Command.Start.Mysql.REVERSE_CHECK, (event) -> startMysqlIncrementMigrationDatacheck());
-    }
-
-    /**
-     * Start mysql full migration.
-     */
-    public static void startMysqlFullMigration() {
-        runningTaskList.add(Command.Start.Mysql.FULL);
-        if (!new File(PortalControl.toolsConfigParametersTable.get(Chameleon.VENV_PATH) + "venv/bin/chameleon").exists() && noinput) {
-            InstallMigrationTools.installMysqlFullMigrationTools();
-        }
-        Tools.changeFullMigrationParameters(PortalControl.toolsMigrationParametersTable);
-        Task task = new Task();
-        String chameleonVenv = Tools.getSinglePropertiesParameter(Chameleon.VENV_PATH, PortalControl.toolsConfigPath);
-        Hashtable<String, String> chameleonParameterTable = new Hashtable<>();
-        chameleonParameterTable.put("--config", "default");
-        task.useChameleonReplicaOrder(chameleonVenv, "drop_replica_schema", chameleonParameterTable);
-        task.useChameleonReplicaOrder(chameleonVenv, "create_replica_schema", chameleonParameterTable);
-        chameleonParameterTable.put("--source", "mysql");
-        task.useChameleonReplicaOrder(chameleonVenv, "add_source", chameleonParameterTable);
-        task.useChameleonReplicaOrder(chameleonVenv, "init_replica", chameleonParameterTable);
-        if (PortalControl.toolsMigrationParametersTable.get(MigrationParameters.SNAPSHOT_OBJECT).equals("yes")) {
-            task.useChameleonReplicaOrder(chameleonVenv, "start_trigger_replica", chameleonParameterTable);
-            task.useChameleonReplicaOrder(chameleonVenv, "start_view_replica", chameleonParameterTable);
-            task.useChameleonReplicaOrder(chameleonVenv, "start_func_replica", chameleonParameterTable);
-            task.useChameleonReplicaOrder(chameleonVenv, "start_proc_replica", chameleonParameterTable);
-        }
-        Tools.findOffset();
-        chameleonParameterTable.clear();
-        LOGGER.info("Mysql full migration finished.");
-    }
-
-    /**
-     * Start mysql full migration datacheck.
-     */
-    public static void startMysqlFullMigrationDatacheck() {
-        runningTaskList.add(Command.Start.Mysql.FULL_CHECK);
-        File kafkaLastFile = new File(PortalControl.toolsConfigParametersTable.get(Debezium.Kafka.PATH) + "libs/kafka-streams-examples-3.2.3.jar");
-        File checkLastFile = new File(PortalControl.toolsConfigParametersTable.get(Check.PATH) + "config/log4j2.xml");
-        if ((!kafkaLastFile.exists() || !checkLastFile.exists()) && noinput) {
-            InstallMigrationTools.installDatacheckTools();
-        }
-        Tools.changeMigrationDatacheckParameters(PortalControl.toolsMigrationParametersTable);
-        String datacheckPath = Tools.getSinglePropertiesParameter(Check.PATH, PortalControl.toolsConfigPath);
-        Task.startTaskMethod(Method.Run.ZOOKEEPER);
-        Task.startTaskMethod(Method.Run.KAFKA);
-        Tools.changeSingleYmlParameter("spring.extract.debezium-enable", false, datacheckPath + "config/application-source.yml");
-        Task.startTaskMethod(Method.Run.CHECK_SINK);
-        Task.startTaskMethod(Method.Run.CHECK_SOURCE);
-        Task.startTaskMethod(Method.Run.CHECK);
-        LOGGER.info("Mysql full migration datacheck has started.");
-    }
-
-    /**
-     * Start mysql incremental migration.
-     */
-    public static void startMysqlIncrementalMigration() {
-        runningTaskList.add(Command.Start.Mysql.INCREMENTAL);
-        File kafkaLastFile = new File(PortalControl.toolsConfigParametersTable.get(Debezium.Kafka.PATH) + "libs/kafka-streams-examples-3.2.3.jar");
-        File confluentLastFile = new File(PortalControl.toolsConfigParametersTable.get(Debezium.Confluent.PATH) + "etc/kafka/consumer.properties");
-        File connectorMySqlLastFile = new File(PortalControl.toolsConfigParametersTable.get(Debezium.Connector.PATH) + "debezium-connector-mysql/debezium-connector-mysql-1.8.1.Final.jar");
-        File connectorOpengaussLastFile = new File(PortalControl.toolsConfigParametersTable.get(Debezium.Connector.PATH) + "debezium-connector-opengauss/debezium-connector-opengauss-1.8.1.Final.jar");
-        boolean flag = kafkaLastFile.exists() && confluentLastFile.exists() && connectorMySqlLastFile.exists() && connectorOpengaussLastFile.exists();
-        if ((!flag) && noinput) {
-            InstallMigrationTools.installIncrementMigrationTools();
-        }
-        Tools.changeIncrementalMigrationParameters(PortalControl.toolsMigrationParametersTable);
-        Task.startTaskMethod(Method.Run.ZOOKEEPER);
-        Task.startTaskMethod(Method.Run.KAFKA);
-        Task.startTaskMethod(Method.Run.REGISTRY);
-        if (Tools.getCommandPid(Task.getTaskProcessMap().get(Method.Run.REVERSE_CONNECT)) != -1) {
-            LOGGER.error("Reverse migration is running.Cannot run incremental migration.");
-            return;
-        }
-        Task.startTaskMethod(Method.Run.CONNECT);
-        while (!stopPlan) {
-            try {
-                LOGGER.info("Incremental migration is running...");
-                Thread.sleep(1000);
-            } catch (InterruptedException e) {
-                LOGGER.error("Interrupted exception occurred in running incremental migraiton.");
-            }
-        }
-    }
-
-    /**
-     * Start mysql reverse migration.
-     */
-    public static void startMysqlReverseMigration() {
-        runningTaskList.add(Command.Start.Mysql.REVERSE);
-        File kafkaLastFile = new File(PortalControl.toolsConfigParametersTable.get(Debezium.Kafka.PATH) + "libs/kafka-streams-examples-3.2.3.jar");
-        File confluentLastFile = new File(PortalControl.toolsConfigParametersTable.get(Debezium.Confluent.PATH) + "etc/kafka/consumer.properties");
-        File connectorMySqlLastFile = new File(PortalControl.toolsConfigParametersTable.get(Debezium.Connector.PATH) + "debezium-connector-mysql/debezium-connector-mysql-1.8.1.Final.jar");
-        File connectorOpengaussLastFile = new File(PortalControl.toolsConfigParametersTable.get(Debezium.Connector.PATH) + "debezium-connector-opengauss/debezium-connector-opengauss-1.8.1.Final.jar");
-        boolean flag = kafkaLastFile.exists() && confluentLastFile.exists() && connectorMySqlLastFile.exists() && connectorOpengaussLastFile.exists();
-        if ((!flag) && noinput) {
-            InstallMigrationTools.installIncrementMigrationTools();
-        }
-        Tools.changeReverseMigrationParameters(PortalControl.toolsMigrationParametersTable);
-        Task.startTaskMethod(Method.Run.ZOOKEEPER);
-        Task.startTaskMethod(Method.Run.KAFKA);
-        Task.startTaskMethod(Method.Run.REGISTRY);
-        if (Tools.getCommandPid(Task.getTaskProcessMap().get(Method.Run.CONNECT)) != -1) {
-            LOGGER.error("Incremental migration is running.Cannot run reverse migration.");
-            return;
-        } else {
-            Task.startTaskMethod(Method.Run.REVERSE_CONNECT);
-        }
-        while (!stopPlan) {
-            try {
-                Thread.sleep(1000);
-                LOGGER.info("Reverse migration is running...");
-            } catch (InterruptedException e) {
-                LOGGER.error("Interrupted exception occurred in running reverse migraiton.");
-            }
-        }
-    }
-
-    /**
-     * Start mysql incremental migration datacheck.
-     */
-    public static void startMysqlIncrementMigrationDatacheck() {
-        runningTaskList.add(Command.Start.Mysql.INCREMENTAL_CHECK);
-        if (!new File(PortalControl.toolsConfigParametersTable.get(Check.PATH) + "config/log4j2.xml").exists() && noinput) {
-            InstallMigrationTools.installDatacheckTools();
-        }
-        String datacheckPath = PortalControl.toolsConfigParametersTable.get(Check.PATH);
-        if (Tools.getCommandPid("QuorumPeerMain") == -1 || Tools.getCommandPid("Kafka") == -1 || Tools.getCommandPid("ConnectStandalone") == -1) {
-            LOGGER.error("There is no connector started.");
-        } else {
-            Tools.changeSingleYmlParameter("spring.extract.debezium-enable", true, datacheckPath + "config/application-source.yml");
-            Task.startTaskMethod(Method.Run.CHECK_SINK);
-            Task.startTaskMethod(Method.Run.CHECK_SOURCE);
-            Task.startTaskMethod(Method.Run.CHECK);
         }
     }
 
@@ -318,6 +245,7 @@ public final class Plan {
     public static void stopPlanThreads() {
         try {
             LOGGER.info("Stop plan.");
+            Tools.closeAllProcess("default_" + workspaceId);
             int size = Plan.runningTaskThreadsList.size();
             for (int i = size - 1; i > -1; i--) {
                 Thread.sleep(3000);
@@ -332,9 +260,8 @@ public final class Plan {
             bw.write("Plan status: runnable");
             bw.flush();
             bw.close();
-            ThreadCheckProcess.exit = true;
+            PortalControl.threadCheckProcess.exit = true;
             isPlanRunnable = true;
-            Plan.stopPlan = false;
             LOGGER.info("All tasks has stopped.");
         } catch (InterruptedException e) {
             LOGGER.error("Interrupted exception occurred in stopping the plan.");
@@ -370,18 +297,32 @@ public final class Plan {
             }
             bw.flush();
             if (runningTaskThreadsList.size() != 0) {
+                boolean cleanFullDataCheck = false;
                 bw.write("Running task threads list:" + System.lineSeparator());
                 bw.write("method name | process name | pid " + System.lineSeparator());
                 for (RunningTaskThread thread : runningTaskThreadsList) {
                     int pid = Tools.getCommandPid(thread.getProcessName());
                     if ((pid != thread.getPid() || pid == -1) && (!PortalControl.commandLineParameterStringMap.get("action").equals("stop"))) {
-                        String[] str = thread.getProcessName().split(" ");
-                        LOGGER.error("Process " + str[0] + " exit abnormally or process " + str[0] + " has started.");
-                        flag = false;
+                        if (thread.getMethodName().contains("Check") && !PortalControl.fullDatacheckFinished) {
+                            cleanFullDataCheck = true;
+                        } else {
+                            String[] str = thread.getProcessName().split(" ");
+                            LOGGER.error("Process " + str[0] + " exit abnormally or process " + str[0] + " has started.");
+                            flag = false;
+                        }
                     }
                     bw.write(thread.getMethodName() + "|" + thread.getProcessName() + "|" + pid + System.lineSeparator());
                 }
                 bw.flush();
+                if (cleanFullDataCheck) {
+                    PortalControl.fullDatacheckFinished = true;
+                    int length = runningTaskThreadsList.size();
+                    for (int i = length - 1; i >= 0; i--) {
+                        if (runningTaskThreadsList.get(i).getMethodName().contains("Check")) {
+                            runningTaskThreadsList.remove(i);
+                        }
+                    }
+                }
             }
             bw.close();
         } catch (FileNotFoundException e) {
@@ -390,6 +331,61 @@ public final class Plan {
             LOGGER.error("IO exception occurred in executing the command.Execute command failed.");
         }
         return flag;
+    }
+
+    /**
+     * Create workspace boolean.
+     *
+     * @param workspaceId the workspace id
+     * @return the boolean
+     */
+    public static boolean createWorkspace(String workspaceId) {
+        boolean flag = true;
+        String path = portalControlPath + "workspace/" + workspaceId + "/";
+            Tools.createFile(path, false);
+            Tools.createFile(path + "tmp", false);
+            Tools.createFile(path + "logs",false);
+            workspacePath = path;
+            RuntimeExecTools.copyFile(portalControlPath + "config/", path);
+            Tools.createFile(portalWorkSpacePath + "status/", false);
+            Tools.createFile(portalWorkSpacePath + "status/portal.txt", true);
+            Tools.createFile(portalWorkSpacePath + "status/full_migration.txt", true);
+            Tools.createFile(portalWorkSpacePath + "status/incremental_migration.txt", true);
+            Tools.createFile(portalWorkSpacePath + "status/reverse_migration.txt", true);
+            Tools.createFile(portalWorkSpacePath + "logs/debezium/", false);
+            Tools.createFile(portalWorkSpacePath + "logs/datacheck/", false);
+            initHashTable();
+            String debeziumConfigPath = portalWorkSpacePath + "config/debezium/";
+            Hashtable<String,String> table2 = new Hashtable<>();
+            table2.put("offset.storage.file.filename", portalWorkSpacePath + "tmp/connect.offsets");
+            table2.put("plugin.path", "share/java, " + PortalControl.toolsConfigParametersTable.get(Debezium.Connector.PATH));
+            Tools.changePropertiesParameters(table2,debeziumConfigPath + "connect-avro-standalone.properties");
+            RuntimeExecTools.copyFile(debeziumConfigPath + "connect-avro-standalone.properties",debeziumConfigPath + "connect-avro-standalone-source.properties");
+            RuntimeExecTools.copyFile(debeziumConfigPath + "connect-avro-standalone.properties",debeziumConfigPath + "connect-avro-standalone-sink.properties");
+            RuntimeExecTools.copyFile(debeziumConfigPath + "connect-avro-standalone.properties",debeziumConfigPath + "connect-avro-standalone-reverse-source.properties");
+            RuntimeExecTools.copyFile(debeziumConfigPath + "connect-avro-standalone.properties",debeziumConfigPath + "connect-avro-standalone-reverse-sink.properties");
+            Tools.changeFile("/tmp/datacheck/logs", portalWorkSpacePath + "/logs/datacheck",portalWorkSpacePath + "config/datacheck/log4j2.xml");
+            Tools.changeFile("/tmp/datacheck/logs", portalWorkSpacePath + "/logs/datacheck",portalWorkSpacePath + "config/datacheck/log4j2source.xml");
+            Tools.changeFile("/tmp/datacheck/logs", portalWorkSpacePath + "/logs/datacheck",portalWorkSpacePath + "config/datacheck/log4j2sink.xml");
+            Tools.changeCommandLineParameters();
+        return flag;
+    }
+
+    /**
+     * Install plan packages.
+     */
+    public static void installPlanPackages() {
+        for (CheckTask checkTask : Plan.checkTaskList) {
+            checkTask.installAllPackages();
+        }
+    }
+
+    /**
+     * Clean.
+     */
+    public static void clean(){
+        CheckTaskMysqlFullMigration checkTaskMysqlFullMigration = new CheckTaskMysqlFullMigration();
+        checkTaskMysqlFullMigration.cleanData(workspaceId);
     }
 }
 

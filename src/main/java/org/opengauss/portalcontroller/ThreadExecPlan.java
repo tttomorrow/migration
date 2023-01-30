@@ -15,20 +15,40 @@
 package org.opengauss.portalcontroller;
 
 /**
- * Thread execute the plan.
- *
- * @author ：liutong
- * @date ：Created in 2022/12/24
- * @since ：1
+ * The type Thread exec plan.
  */
 public class ThreadExecPlan extends Thread implements Runnable {
 
+    private String workspaceId;
+
     /**
-     * Run.Execute the plan.
+     * Gets workspace id.
+     *
+     * @return the workspace id
      */
+    public String getWorkspaceId() {
+        return workspaceId;
+    }
+
+    /**
+     * Sets workspace id.
+     *
+     * @param workspaceId the workspace id
+     */
+    public void setWorkspaceId(String workspaceId) {
+        this.workspaceId = workspaceId;
+    }
+
+    /**
+     * Create a new thread exec plan.
+     *
+     * @param workspaceId the workspace id
+     */
+    public ThreadExecPlan (String workspaceId){
+        this.workspaceId = workspaceId;
+    }
     @Override
     public void run() {
-        Task.initTaskProcessMap();
-        Plan.getInstance().execPlan(PortalControl.taskList);
+        Plan.getInstance(this.workspaceId).execPlan(PortalControl.taskList);
     }
 }

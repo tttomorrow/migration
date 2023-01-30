@@ -44,5 +44,6 @@ public interface Debezium {
             String PASSWORD = "opengauss.password";
             String URL = "opengauss.url";
         }
+        String SCHEMA_MAPPING = "schema.mappings";
     }
 }

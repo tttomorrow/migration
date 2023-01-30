@@ -1,0 +1,25 @@
+package org.opengauss.portalcontroller.constant;
+
+public interface Status {
+    int START_FULL_MIGRATION = 1;
+    int RUNNING_FULL_MIGRATION = 2;
+    int FULL_MIGRATION_FINISHED = 3;
+    int START_FULL_MIGRATION_CHECK = 4;
+    int RUNNING_FULL_MIGRATION_CHECK = 5;
+    int FULL_MIGRATION_CHECK_FINISHED = 6;
+    int START_INCREMENTAL_MIGRATION = 7;
+    int RUNNING_INCREMENTAL_MIGRATION = 8;
+    int INCREMENTAL_MIGRATION_FINISHED = 9;
+    int START_REVERSE_MIGRATION = 10;
+    int RUNNING_REVERSE_MIGRATION = 11;
+    int REVERSE_MIGRATION_FINISHED = 12;
+    int ERROR = 500;
+    interface Object{
+        int START_FULL_MIGRATION = 1;
+        int RUNNING_FULL_MIGRATION = 2;
+        int FULL_MIGRATION_FINISHED = 3;
+        int RUNNING_FULL_MIGRATION_CHECK = 4;
+        int FULL_MIGRATION_CHECK_FINISHED = 5;
+        int ERROR = 6;
+    }
+}
