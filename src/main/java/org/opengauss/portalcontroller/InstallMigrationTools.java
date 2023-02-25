@@ -14,10 +14,11 @@
  */
 package org.opengauss.portalcontroller;
 
-import org.opengauss.portalcontroller.check.CheckTool;
-import org.opengauss.portalcontroller.check.CheckToolsChameleon;
-import org.opengauss.portalcontroller.check.CheckToolsDatacheck;
-import org.opengauss.portalcontroller.check.CheckToolsIncrementalMigration;
+import org.opengauss.portalcontroller.check.CheckTask;
+import org.opengauss.portalcontroller.check.CheckTaskMysqlFullMigration;
+import org.opengauss.portalcontroller.check.CheckTaskFullDatacheck;
+import org.opengauss.portalcontroller.check.CheckTaskIncrementalMigration;
+import org.opengauss.portalcontroller.check.CheckTaskReverseMigration;
 import org.opengauss.portalcontroller.constant.Chameleon;
 import org.opengauss.portalcontroller.constant.Check;
 import org.opengauss.portalcontroller.constant.Debezium;
@@ -45,15 +46,14 @@ public class InstallMigrationTools {
 
     /**
      * Install mysql full migration tools offline.
+     *
+     * @return the boolean
      */
     public static boolean installMysqlFullMigrationToolsOffline() {
         boolean flag = true;
-        CheckTool checkTool = new CheckToolsChameleon();
-        checkTool.installPackage();
-        checkTool.copyConfigFiles();
-        checkTool.changeParameters();
+        CheckTaskMysqlFullMigration checkTask = new CheckTaskMysqlFullMigration();
+        checkTask.installAllPackages();
         LOGGER.info("Install full migration tools finished.");
-
         return flag;
     }
 
@@ -72,11 +72,28 @@ public class InstallMigrationTools {
      * Install increment migration tools offline.
      */
     public static void installIncrementalMigrationToolsOffline() {
-        CheckTool checkTool = new CheckToolsIncrementalMigration();
-        checkTool.installPackage();
-        checkTool.copyConfigFiles();
-        checkTool.changeParameters();
+        CheckTask checkTask = new CheckTaskIncrementalMigration();
+        checkTask.installAllPackages();
         LOGGER.info("Install incremental migration tools finished.");
+    }
+
+    /**
+     * Install reverse migration tools online.
+     */
+    public static void installReverseMigrationToolsOnline() {
+        RuntimeExecTools.download(Debezium.Kafka.PKG_URL, Debezium.PKG_PATH);
+        RuntimeExecTools.download(Debezium.Confluent.PKG_URL, Debezium.PKG_PATH);
+        RuntimeExecTools.download(Debezium.Connector.OPENGAUSS_PKG_URL, Debezium.PKG_PATH);
+        InstallMigrationTools.installReverseMigrationToolsOffline();
+    }
+
+    /**
+     * Install reverse migration tools offline.
+     */
+    public static void installReverseMigrationToolsOffline() {
+        CheckTask checkTask = new CheckTaskReverseMigration();
+        checkTask.installAllPackages();
+        LOGGER.info("Install reverse migration tools finished.");
     }
 
     /**
@@ -91,9 +108,8 @@ public class InstallMigrationTools {
      * Install datacheck tools offline.
      */
     public static void installDatacheckToolsOffline() {
-        CheckTool checkTool = new CheckToolsDatacheck();
-        checkTool.installPackage();
-        checkTool.copyConfigFiles();
+        CheckTaskFullDatacheck checkTask = new CheckTaskFullDatacheck();
+        checkTask.installAllPackages();
         LOGGER.info("Install datacheck tools finished.");
     }
 
@@ -104,6 +120,7 @@ public class InstallMigrationTools {
         installMysqlFullMigrationTools();
         installIncrementMigrationTools();
         installDatacheckTools();
+        installReverseMigrationTools();
         LOGGER.info("All migration tools have been installed.");
     }
 
@@ -134,12 +151,22 @@ public class InstallMigrationTools {
     }
 
     /**
+     * Uninstall reverse migration tools.
+     */
+    public static void uninstallReverseMigrationTools() {
+        RuntimeExecTools.removeFile(PortalControl.toolsConfigParametersTable.get(Debezium.PATH));
+        RuntimeExecTools.removeFile(PortalControl.portalControlPath + "tmp/kafka-logs");
+        RuntimeExecTools.removeFile(PortalControl.portalControlPath + "tmp/zookeeper");
+    }
+
+    /**
      * Uninstall migration tools.
      */
     public static void uninstallMigrationTools() {
         uninstallMysqlFullMigrationTools();
         uninstallIncrementalMigrationTools();
         uninstallDatacheckTools();
+        uninstallReverseMigrationTools();
     }
 
     /**
@@ -179,6 +206,20 @@ public class InstallMigrationTools {
             installDatacheckToolsOnline();
         } else if (installWay.equals("offline")) {
             installDatacheckToolsOffline();
+        } else {
+            LOGGER.info("Please check default.install.datacheck.tools.way in migrationConfig.properties.This property must be online or offline.");
+        }
+    }
+
+    /**
+     * Install reverse migration tools offline.
+     */
+    public static void installReverseMigrationTools() {
+        String installWay = PortalControl.toolsMigrationParametersTable.get(MigrationParameters.Install.REVERSE_MIGRATION);
+        if (installWay.equals("online")) {
+            installReverseMigrationToolsOnline();
+        } else if (installWay.equals("offline")) {
+            installReverseMigrationToolsOffline();
         } else {
             LOGGER.info("Please check default.install.datacheck.tools.way in migrationConfig.properties.This property must be online or offline.");
         }

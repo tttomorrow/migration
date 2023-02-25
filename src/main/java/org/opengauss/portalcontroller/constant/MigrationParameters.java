@@ -6,5 +6,6 @@ public interface MigrationParameters {
         String FULL_MIGRATION = "default.install.mysql.full.migration.tools.way";
         String INCREMENTAL_MIGRATION = "default.install.mysql.incremental.migration.tools.way";
         String CHECK = "default.install.mysql.datacheck.tools.way";
+        String REVERSE_MIGRATION = "default.install.mysql.reverse.migration.tools.way";
     }
 }
