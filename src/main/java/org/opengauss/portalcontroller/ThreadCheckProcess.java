@@ -39,7 +39,7 @@ public class ThreadCheckProcess extends Thread implements Runnable {
         while (true) {
             try {
                 Thread.sleep(1000);
-                if(!Plan.checkRunningThreads() || exit){
+                if(exit || Plan.stopPlan || !Plan.checkRunningThreads()){
                     break;
                 }
             } catch (InterruptedException e) {

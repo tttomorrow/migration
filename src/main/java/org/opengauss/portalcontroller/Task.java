@@ -277,11 +277,11 @@ public class Task {
      * @param path Path.
      */
     public void stopZookeeper(String path) {
-        if(Tools.checkAnotherProcessExist("-Dpath=" + PortalControl.portalControlPath,"-Dworkspace.id=" + Plan.workspaceId)){
+        if(Tools.checkAnotherProcessExist("portalControl-1.0-SNAPSHOT-exec.jar")){
+            LOGGER.info("Another portal is running.Wait for the lastest portal to stop zookeeper.");
+        }else{
             RuntimeExecTools.executeOrder(path + "bin/zookeeper-server-stop.sh " + path + "config/zookeeper.properties", 3000);
             LOGGER.info("Stop zookeeper.");
-        }else{
-            LOGGER.info("Another portal is running.Wait for the lastest portal to stop zookeeper.");
         }
     }
 
@@ -301,11 +301,11 @@ public class Task {
      * @param path Path.
      */
     public void stopKafka(String path) {
-        if(Tools.checkAnotherProcessExist("-Dpath=" + PortalControl.portalControlPath,"-Dworkspace.id=" + Plan.workspaceId)){
+        if(Tools.checkAnotherProcessExist("portalControl-1.0-SNAPSHOT-exec.jar")){
+            LOGGER.info("Another portal is running.Wait for the lastest portal to stop kafka.");
+        }else{
             RuntimeExecTools.executeOrder(path + "bin/kafka-server-stop.sh " + path + "config/server.properties", 3000);
             LOGGER.info("Stop kafka.");
-        }else{
-            LOGGER.info("Another portal is running.Wait for the lastest portal to stop kafka.");
         }
     }
 
@@ -325,11 +325,11 @@ public class Task {
      * @param path Path.
      */
     public void stopKafkaSchema(String path) {
-        if(Tools.checkAnotherProcessExist("-Dpath=" + PortalControl.portalControlPath,"-Dworkspace.id=" + Plan.workspaceId)){
+        if(Tools.checkAnotherProcessExist("portalControl-1.0-SNAPSHOT-exec.jar")){
+            LOGGER.info("Another portal is running.Wait for the lastest portal to stop schema registry.");
+        }else{
             RuntimeExecTools.executeOrder(path + "bin/schema-registry-stop " + path + "etc/schema-registry/schema-registry.properties", 3000);
             LOGGER.info("Stop kafkaSchemaRegistry.");
-        }else{
-            LOGGER.info("Another portal is running.Wait for the lastest portal to stop schema registry.");
         }
     }
 

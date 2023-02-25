@@ -6,6 +6,5 @@ public interface CheckTask {
     void copyConfigFiles(String workspaceId);
     void prepareWork(String workspaceId);
     void start(String workspaceId);
-
     void checkEnd();
 }

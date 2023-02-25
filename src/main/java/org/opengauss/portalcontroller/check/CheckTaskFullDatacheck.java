@@ -50,9 +50,9 @@ public class CheckTaskFullDatacheck implements CheckTask {
     public void changeParameters(String workspaceId) {
         Hashtable<String, String> hashtable = PortalControl.toolsConfigParametersTable;
         String kafkaPath = hashtable.get(Debezium.Kafka.PATH);
-        Tools.changeSinglePropertiesParameter("dataDir",PortalControl.portalControlPath + "tmp/zookeeper", kafkaPath + "config/zookeeper.properties");
-        Tools.changeSinglePropertiesParameter("log.dirs",PortalControl.portalControlPath + "tmp/kafka-logs", kafkaPath + "config/server.properties");
-        Tools.changeSingleYmlParameter("spring.extract.debezium-enable",false,PortalControl.portalWorkSpacePath + "config/datacheck/application-source.yml");
+        Tools.changeSinglePropertiesParameter("dataDir", PortalControl.portalControlPath + "tmp/zookeeper", kafkaPath + "config/zookeeper.properties");
+        Tools.changeSinglePropertiesParameter("log.dirs", PortalControl.portalControlPath + "tmp/kafka-logs", kafkaPath + "config/server.properties");
+        Tools.changeSingleYmlParameter("spring.extract.debezium-enable", false, PortalControl.portalWorkSpacePath + "config/datacheck/application-source.yml");
         Tools.changeMigrationDatacheckParameters(PortalControl.toolsMigrationParametersTable);
     }
 
@@ -60,12 +60,12 @@ public class CheckTaskFullDatacheck implements CheckTask {
     public void start(String workspaceId) {
         PortalControl.status = Status.START_FULL_MIGRATION_CHECK;
         Plan.runningTaskList.add(Command.Start.Mysql.FULL_CHECK);
-        Task.startTaskMethod(Method.Run.ZOOKEEPER,8000);
-        Task.startTaskMethod(Method.Run.KAFKA,8000);
+        Task.startTaskMethod(Method.Run.ZOOKEEPER, 8000);
+        Task.startTaskMethod(Method.Run.KAFKA, 8000);
         changeParameters(workspaceId);
-        Task.startTaskMethod(Method.Run.CHECK_SOURCE,5000);
-        Task.startTaskMethod(Method.Run.CHECK_SINK,5000);
-        Task.startTaskMethod(Method.Run.CHECK,5000);
+        Task.startTaskMethod(Method.Run.CHECK_SOURCE, 5000);
+        Task.startTaskMethod(Method.Run.CHECK_SINK, 5000);
+        Task.startTaskMethod(Method.Run.CHECK, 5000);
         LOGGER.info("Mysql datacheck has started.");
         PortalControl.status = Status.RUNNING_FULL_MIGRATION_CHECK;
         checkEnd();
@@ -82,7 +82,7 @@ public class CheckTaskFullDatacheck implements CheckTask {
 
     public void checkEnd() {
         while (true) {
-            if(Tools.getCommandPid(Task.getTaskProcessMap().get(Method.Run.CHECK))== -1){
+            if (Tools.getCommandPid(Task.getTaskProcessMap().get(Method.Run.CHECK)) == -1) {
                 LOGGER.info("Full migration datacheck is finished.");
                 PortalControl.status = Status.FULL_MIGRATION_CHECK_FINISHED;
                 break;

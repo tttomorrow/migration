@@ -1,5 +1,6 @@
 package org.opengauss.portalcontroller.check;
 
+import org.opengauss.portalcontroller.Plan;
 import org.opengauss.portalcontroller.PortalControl;
 import org.opengauss.portalcontroller.RuntimeExecTools;
 import org.opengauss.portalcontroller.Task;
@@ -120,6 +121,12 @@ public class CheckTaskMysqlFullMigration implements CheckTask {
         Hashtable<String, String> chameleonParameterTable = new Hashtable<>();
         chameleonParameterTable.put("--config", "default_"+workspaceId);
         task.useChameleonReplicaOrder(chameleonVenv,"drop_replica_schema", chameleonParameterTable,workspaceId);
+        String chameleonVenvPath = PortalControl.toolsConfigParametersTable.get(Chameleon.VENV_PATH);
+        RuntimeExecTools.removeFile(chameleonVenvPath + "data_default_" + Plan.workspaceId + "_init_replica.json");
+        RuntimeExecTools.removeFile(chameleonVenvPath + "data_default_" + Plan.workspaceId + "_start_view_replica.json");
+        RuntimeExecTools.removeFile(chameleonVenvPath + "data_default_" + Plan.workspaceId + "_start_trigger_replica.json");
+        RuntimeExecTools.removeFile(chameleonVenvPath + "data_default_" + Plan.workspaceId + "_start_proc_replica.json");
+        RuntimeExecTools.removeFile(chameleonVenvPath + "data_default_" + Plan.workspaceId + "_start_func_replica.json");
     }
 
     public void checkEnd(){

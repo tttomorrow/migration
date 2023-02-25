@@ -312,19 +312,23 @@ public class Tools {
      * Check another process exist boolean.
      *
      * @param command the command
-     * @param sign    the sign
      * @return the boolean
      */
-    public static boolean checkAnotherProcessExist(String command, String sign) {
+    public static boolean checkAnotherProcessExist(String command) {
         boolean signal = false;
+        int count = 0;
         try {
             Process pro = Runtime.getRuntime().exec(new String[]{"sh", "-c", "ps ux"});
             BufferedInputStream in = new BufferedInputStream(pro.getInputStream());
             BufferedReader br = new BufferedReader(new InputStreamReader(in));
-            String s;
+            String s = "";
             while ((s = br.readLine()) != null) {
-                if (s.contains(command) && !s.contains(sign)) {
-                    signal = true;
+                if (s.contains(command)) {
+                    count++;
+                    if (count > 1) {
+                        signal = true;
+                        break;
+                    }
                 }
             }
             br.close();
@@ -877,8 +881,8 @@ public class Tools {
     /**
      * Search available ports.
      *
-     * @param size      The size of available port list.
-     * @param total     The total ports to search.
+     * @param size  The size of available port list.
+     * @param total The total ports to search.
      * @return List of integer. The list of available port list.
      */
     public static ArrayList<Integer> getAvailablePorts(int size, int total) {
@@ -1126,9 +1130,6 @@ public class Tools {
                 String rulesColumnName = System.getProperty(Check.Rules.Column.NAME + i);
                 String rulesColumnText = System.getProperty(Check.Rules.Column.TEXT + i);
                 String rulesColumnAttribute = System.getProperty(Check.Rules.Column.ATTRIBUTE + i);
-//                CheckRules checkRules = new CheckRules(rulesRowName, rulesRoweText, rulesAttribute);
-//                rules.append(JSON.toJSONString(checkRules));
-//                rules.append(System.lineSeparator());
                 rules.append("column-name" + i + ":" + rulesColumnName + System.lineSeparator());
                 rules.append("column-text" + i + ":" + rulesColumnText + System.lineSeparator());
                 rules.append("column-attribute" + i + ":" + rulesColumnAttribute + System.lineSeparator());
@@ -1155,8 +1156,6 @@ public class Tools {
             String overrideType = System.getProperty(Chameleon.Override.SOURCE_TYPE + i);
             String overrideTo = System.getProperty(Chameleon.Override.SINK_TYPE + i);
             String overrideTables = System.getProperty(Chameleon.Override.TABLES + i);
-//            CheckRules checkRules = new CheckRules(overrideType, overrideTo, overrideTables);
-//            rules.append(JSON.toJSONString(checkRules));
             rules.append(overrideType + System.lineSeparator());
             rules.append(overrideTo + System.lineSeparator());
             rules.append(overrideTables + System.lineSeparator());
@@ -1187,7 +1186,7 @@ public class Tools {
             String tableName = table.getJSONObject(i).getString("name");
             double percent = table.getJSONObject(i).getDouble("percent");
             int status = table.getJSONObject(i).getInteger("status");
-            if(new File(PortalControl.portalWorkSpacePath + "check_result/result").exists()){
+            if (new File(PortalControl.portalWorkSpacePath + "check_result/result").exists()) {
                 File[] fileList = new File(PortalControl.portalWorkSpacePath + "check_result/result").listFiles();
                 for (File file1 : fileList) {
                     String fileName = file1.getName();
@@ -1212,15 +1211,15 @@ public class Tools {
         return tableStatusList;
     }
 
-    public static ArrayList<ObjectStatus> getChameleonObjectStatus(String name,String order) {
+    public static ArrayList<ObjectStatus> getChameleonObjectStatus(String name, String order) {
         ArrayList<ObjectStatus> objectStatusList = new ArrayList<>();
         try {
             String chameleonStr = "";
             String chameleonVenvPath = PortalControl.toolsConfigParametersTable.get(Chameleon.VENV_PATH);
             String path = "";
-            if(new File(path).exists()){
+            if (new File(path).exists()) {
                 path = chameleonVenvPath + "data_default_" + Plan.workspaceId + "_" + order + ".json";
-            }else{
+            } else {
                 path = chameleonVenvPath + "data_default_" + Plan.workspaceId + "_init_replica.json";
             }
             BufferedReader fileReader = new BufferedReader((new InputStreamReader(new FileInputStream(path))));
@@ -1248,17 +1247,14 @@ public class Tools {
     }
 
     public static void changeFullStatus() {
-        ArrayList<TableStatus> tableStatusArrayList= Tools.getChameleonTableStatus();
-        ArrayList<ObjectStatus> viewStatusArrayList= Tools.getChameleonObjectStatus("view","start_view_replica");
-
-        ArrayList<ObjectStatus> functionStatusArrayList= Tools.getChameleonObjectStatus("function","start_func_replica");
-        ArrayList<ObjectStatus> triggerStatusArrayList= Tools.getChameleonObjectStatus("trigger","start_trigger_replica");
-        ArrayList<ObjectStatus> procedureStatusArrayList= Tools.getChameleonObjectStatus("procedure","start_proc_replica");
-//        JSONObject fullMigrationStatus = new
+        ArrayList<TableStatus> tableStatusArrayList = Tools.getChameleonTableStatus();
+        ArrayList<ObjectStatus> viewStatusArrayList = Tools.getChameleonObjectStatus("view", "start_view_replica");
+        ArrayList<ObjectStatus> functionStatusArrayList = Tools.getChameleonObjectStatus("function", "start_func_replica");
+        ArrayList<ObjectStatus> triggerStatusArrayList = Tools.getChameleonObjectStatus("trigger", "start_trigger_replica");
+        ArrayList<ObjectStatus> procedureStatusArrayList = Tools.getChameleonObjectStatus("procedure", "start_proc_replica");
         FullMigrationStatus fullMigrationStatus = new FullMigrationStatus(tableStatusArrayList, viewStatusArrayList, functionStatusArrayList, triggerStatusArrayList, procedureStatusArrayList);
         String fullMigrationStatusString = JSON.toJSONString(fullMigrationStatus);
-        Tools.writeFile(fullMigrationStatusString,new File(PortalControl.portalWorkSpacePath + "status/full_migration.txt"));
-
+        Tools.writeFile(fullMigrationStatusString, new File(PortalControl.portalWorkSpacePath + "status/full_migration.txt"));
     }
 
     public static String readFile(File file) {
@@ -1277,7 +1273,7 @@ public class Tools {
 
     }
 
-    public static void writeFile(String str,File file) {
+    public static void writeFile(String str, File file) {
         try {
             BufferedWriter bufferedWriter = new BufferedWriter(new FileWriter(file));
             bufferedWriter.write(str);

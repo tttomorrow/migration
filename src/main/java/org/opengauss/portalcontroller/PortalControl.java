@@ -151,11 +151,6 @@ public class PortalControl {
 
     public static int startPort = 10000;
 
-//    /**
-//     * The constant availablePortList.
-//     */
-//    public static ArrayList<Integer> availablePortList = new ArrayList<>();
-
     /**
      * The constant threadGetOrder.
      */
@@ -168,14 +163,11 @@ public class PortalControl {
      * @param args args
      */
     public static void main(String[] args) {
-//        int startPort = 10000;
-//        if (System.getProperty("start.port") != null) {
-//            startPort = Integer.parseInt(System.getProperty("start.port"));
-//        }
-//        PortalControl.availablePortList = Tools.getAvailablePorts(startPort, 7, 30);
         File file = new File("/data1/lt/test/portal/workspace");
-        int workspaces = Objects.requireNonNull(file.listFiles()).length;
-        startPort += workspaces * 50;
+        if(file.exists() && file.isDirectory()){
+            int workspaces = Objects.requireNonNull(file.listFiles()).length;
+            startPort += workspaces * 50;
+        }
         Tools.cleanInputOrder();
         initPlanList();
         initParametersRegexMap();

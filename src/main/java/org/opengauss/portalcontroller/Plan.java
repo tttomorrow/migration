@@ -15,6 +15,7 @@
 package org.opengauss.portalcontroller;
 
 import org.opengauss.portalcontroller.check.*;
+import org.opengauss.portalcontroller.constant.Command;
 import org.opengauss.portalcontroller.constant.Debezium;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,6 +35,8 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import static org.opengauss.portalcontroller.PortalControl.initHashTable;
 import static org.opengauss.portalcontroller.PortalControl.portalControlPath;
 import static org.opengauss.portalcontroller.PortalControl.portalWorkSpacePath;
+import static org.opengauss.portalcontroller.PortalControl.toolsConfigParametersTable;
+import static org.opengauss.portalcontroller.PortalControl.toolsConfigPath;
 
 
 /**
@@ -245,26 +248,20 @@ public final class Plan {
     public static void stopPlanThreads() {
         try {
             LOGGER.info("Stop plan.");
-            Tools.closeAllProcess("default_" + workspaceId);
-            int size = Plan.runningTaskThreadsList.size();
-            for (int i = size - 1; i > -1; i--) {
-                Thread.sleep(3000);
-                Plan.runningTaskThreadsList.get(i).stopTask();
-            }
+            Tools.closeAllProcess("--config default_" + workspaceId + " --");
+            PortalControl.threadCheckProcess.exit = true;
             Plan.runningTaskThreadsList.clear();
             Plan.runningTaskList.clear();
             Plan.currentTask = "";
             PortalControl.taskList.clear();
-            File portalFile = new File(portalControlPath + "config/status");
+            stopAllTasks();
+            File portalFile = new File(portalWorkSpacePath + "status/portal.txt");
             BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(portalFile)));
             bw.write("Plan status: runnable");
             bw.flush();
             bw.close();
-            PortalControl.threadCheckProcess.exit = true;
             isPlanRunnable = true;
             LOGGER.info("All tasks has stopped.");
-        } catch (InterruptedException e) {
-            LOGGER.error("Interrupted exception occurred in stopping the plan.");
         } catch (FileNotFoundException e) {
             LOGGER.error("File status not found.");
         } catch (IOException e) {
@@ -280,7 +277,7 @@ public final class Plan {
     public static boolean checkRunningThreads() {
         boolean flag = true;
         try {
-            File file = new File(portalControlPath + "config/status");
+            File file = new File(portalWorkSpacePath + "status/portal.txt");
             BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(file)));
             if (Plan.isPlanRunnable) {
                 bw.write("Plan status: runnable" + System.lineSeparator());
@@ -386,6 +383,33 @@ public final class Plan {
     public static void clean(){
         CheckTaskMysqlFullMigration checkTaskMysqlFullMigration = new CheckTaskMysqlFullMigration();
         checkTaskMysqlFullMigration.cleanData(workspaceId);
+    }
+
+    public static void stopAllTasks() {
+        try{
+        Task task = new Task();
+        task.stopDataCheck();
+        task.stopDataCheckSink();
+        Thread.sleep(1000);
+        task.stopDataCheckSource();
+        Thread.sleep(1000);
+        task.stopReverseKafkaConnectSink();
+        Thread.sleep(1000);
+        task.stopReverseKafkaConnectSource();
+        Thread.sleep(1000);
+        task.stopKafkaConnectSink();
+        Thread.sleep(1000);
+        task.stopDataCheckSource();
+        Thread.sleep(1000);
+        task.stopKafkaSchema(toolsConfigParametersTable.get(Debezium.Confluent.PATH));
+        Thread.sleep(1000);
+        task.stopKafka(toolsConfigParametersTable.get(Debezium.Kafka.PATH));
+        Thread.sleep(1000);
+        task.stopZookeeper(toolsConfigParametersTable.get(Debezium.Kafka.PATH));
+        Thread.sleep(1000);
+        }catch (InterruptedException e) {
+            LOGGER.error("Interrupted exception occurred in stopping the plan.");
+        }
     }
 }
 

@@ -237,9 +237,13 @@ public class RuntimeExecTools {
      * @param path Filepath.
      */
     public static void removeFile(String path) {
-        String command = "rm -rf " + path;
-        executeOrder(command, 60000);
-        LOGGER.info("Remove file " + path + " finished.");
+        if(new File(path).exists()){
+            String command = "rm -rf " + path;
+            executeOrder(command, 60000);
+            LOGGER.info("Remove file " + path + " finished.");
+        }else{
+            LOGGER.info("No file " + path + " to remove.");
+        }
     }
 
     /**
