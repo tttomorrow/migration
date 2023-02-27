@@ -74,6 +74,7 @@ public class RuntimeExecTools {
         String[] commands = command.split(" ");
         processBuilder.directory(new File(workDirectory));
         processBuilder.command(commands);
+        processBuilder.redirectError(new File(PortalControl.portalWorkSpacePath + "logs/error.log"));
         try {
             Process process = processBuilder.start();
             String errorStr = "";
