@@ -52,10 +52,12 @@ public class CheckTaskIncrementalMigration implements CheckTask {
         hashtable1.put("database.history.kafka.topic","mysql_server_" + workspaceId + "_history");
         hashtable1.put("transforms.route.regex","^"+"mysql_server_" + workspaceId+"(.*)");
         hashtable1.put("transforms.route.replacement","mysql_server_" + workspaceId + "_topic");
+        hashtable1.put("file.path", portalWorkSpacePath + "logs/incremental_migration_source.txt");
         Tools.changePropertiesParameters(hashtable1,sourceConfigPath);
         Hashtable<String,String> hashtable2 = new Hashtable<>();
         hashtable2.put("name","mysql-sink-" + workspaceId);
         hashtable2.put("topics","mysql_server_" + workspaceId + "_topic");
+        hashtable2.put("file.path",portalWorkSpacePath + "logs/incremental_migration_sink.txt");
         Tools.changePropertiesParameters(hashtable2,sinkConfigPath);
     }
 

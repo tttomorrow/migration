@@ -11,7 +11,9 @@ spring:
     databaseType: MS
     query-dop: 8 # openGauss database Parallel Query session config
     debezium-enable: false
-    debezium-topic: data_check_all # debezium topic
+    debezium-topic: data_check_avro_inc_topic_w1 # debezium topic
+    debezium-serializer: AvroSerializer # StringSerializer or AvroSerializer
+    debezium-avro-registry: http://localhost:8081 # avro schema registry
     debezium-groupId: debezium-extract-group # debezium topic groupId
     debezium-time-period: 1 # Debezium incremental migration verification time period: 24 * 60 unit: Min
     # debezium-num-period: Debezium incremental migration verification is the threshold value of the number
@@ -27,3 +29,8 @@ spring:
         url: jdbc:mysql://127.0.0.1:3306/mysql?useSSL=false&useUnicode=true&characterEncoding=utf-8&serverTimezone=UTC&allowPublicKeyRetrieval=true
         username:
         password: 'xxxx' # The password text may contain special characters, which need to be enclosed in quotation marks
+        # Configure initialization connection pool size, minimum number of connections, and maximum number of connections
+        # Users can make appropriate adjustments according to the number of current database tables
+        initialSize: 5 # initialization connection pool size
+        minIdle: 10 # minimum number of connections
+        maxActive: 20 # maximum number of connections

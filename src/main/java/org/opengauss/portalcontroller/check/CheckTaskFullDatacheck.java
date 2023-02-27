@@ -91,7 +91,7 @@ public class CheckTaskFullDatacheck implements CheckTask {
                 LOGGER.info("Full migration datacheck is running...");
             }
             try {
-                Thread.sleep(900);
+                Thread.sleep(1500);
             } catch (InterruptedException e) {
                 LOGGER.error("Interrupted exception occurred in running full migration datacheck.");
             }

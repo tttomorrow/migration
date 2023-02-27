@@ -343,7 +343,7 @@ public final class Plan {
             Tools.createFile(path + "tmp", false);
             Tools.createFile(path + "logs",false);
             workspacePath = path;
-            RuntimeExecTools.copyFile(portalControlPath + "config/", path);
+            RuntimeExecTools.copyFile(portalControlPath + "config", path);
             Tools.createFile(portalWorkSpacePath + "status/", false);
             Tools.createFile(portalWorkSpacePath + "status/portal.txt", true);
             Tools.createFile(portalWorkSpacePath + "status/full_migration.txt", true);
@@ -399,7 +399,7 @@ public final class Plan {
         Thread.sleep(1000);
         task.stopKafkaConnectSink();
         Thread.sleep(1000);
-        task.stopDataCheckSource();
+        task.stopKafkaConnectSource();
         Thread.sleep(1000);
         task.stopKafkaSchema(toolsConfigParametersTable.get(Debezium.Confluent.PATH));
         Thread.sleep(1000);

@@ -294,7 +294,7 @@ public class Tools {
                 if (s.contains(command)) {
                     String[] strs = s.split("\\s+");
                     int pid = Integer.parseInt(strs[1]);
-                    RuntimeExecTools.executeOrder("kill -9 " + pid, 20);
+                    RuntimeExecTools.executeOrder("kill -9 " + pid, 20,PortalControl.portalWorkSpacePath + "logs/error.log");
                 }
             }
             br.close();
@@ -746,7 +746,7 @@ public class Tools {
         boolean flag = false;
         File file = new File(PortalControl.portalWorkSpacePath + "config/input");
         try {
-            RuntimeExecTools.executeOrder("mkfifo " + PortalControl.portalWorkSpacePath + "config/input", 2000);
+            RuntimeExecTools.executeOrder("mkfifo " + PortalControl.portalWorkSpacePath + "config/input", 2000,PortalControl.portalWorkSpacePath + "logs/error.log");
             BufferedWriter bufferedWriter = new BufferedWriter(new FileWriter(file));
             bufferedWriter.write(command);
             bufferedWriter.flush();
@@ -1254,7 +1254,7 @@ public class Tools {
         ArrayList<ObjectStatus> procedureStatusArrayList = Tools.getChameleonObjectStatus("procedure", "start_proc_replica");
         FullMigrationStatus fullMigrationStatus = new FullMigrationStatus(tableStatusArrayList, viewStatusArrayList, functionStatusArrayList, triggerStatusArrayList, procedureStatusArrayList);
         String fullMigrationStatusString = JSON.toJSONString(fullMigrationStatus);
-        Tools.writeFile(fullMigrationStatusString, new File(PortalControl.portalWorkSpacePath + "status/full_migration.txt"));
+        Tools.writeFile(fullMigrationStatusString, new File(PortalControl.portalWorkSpacePath + "status/full_migration.txt"),false);
     }
 
     public static String readFile(File file) {
@@ -1273,14 +1273,20 @@ public class Tools {
 
     }
 
-    public static void writeFile(String str, File file) {
+    public static void writeFile(String str, File file,boolean append) {
         try {
-            BufferedWriter bufferedWriter = new BufferedWriter(new FileWriter(file));
+            BufferedWriter bufferedWriter = new BufferedWriter(new FileWriter(file,append));
             bufferedWriter.write(str);
             bufferedWriter.flush();
             bufferedWriter.close();
         } catch (IOException e) {
             LOGGER.info("IO exception occurred in read file " + file.getAbsolutePath());
         }
+    }
+
+    public static void stopPortal(){
+        PortalControl.threadCheckProcess.exit = true;
+        PortalControl.threadGetOrder.exit = true;
+        PortalControl.threadStatusController.exit = true;
     }
 }

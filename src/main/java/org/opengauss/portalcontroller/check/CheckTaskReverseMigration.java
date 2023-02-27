@@ -9,6 +9,8 @@ import org.slf4j.LoggerFactory;
 
 import java.util.Hashtable;
 
+import static org.opengauss.portalcontroller.PortalControl.portalWorkSpacePath;
+
 /**
  * The type Check task reverse migration.
  */
@@ -54,11 +56,13 @@ public class CheckTaskReverseMigration implements CheckTask {
         hashtable1.put("database.history.kafka.topic","opengauss_server_" + workspaceId + "_history");
         hashtable1.put("transforms.route.regex","^"+"opengauss_server_" + workspaceId+"(.*)");
         hashtable1.put("transforms.route.replacement","opengauss_server_" + workspaceId + "_topic");
+        hashtable1.put("file.path",portalWorkSpacePath + "logs/incremental_migration_source.txt");
         hashtable1.put("slot.name","slot_" + workspaceId);
         Tools.changePropertiesParameters(hashtable1,sourceConfigPath);
         Hashtable<String,String> hashtable2 = new Hashtable<>();
         hashtable2.put("name","opengauss-sink-" + workspaceId);
         hashtable2.put("topics","opengauss_server_" + workspaceId + "_topic");
+        hashtable2.put("file.path",portalWorkSpacePath + "logs/reverse_migration_sink.txt");
         Tools.changePropertiesParameters(hashtable2,sinkConfigPath);
     }
 

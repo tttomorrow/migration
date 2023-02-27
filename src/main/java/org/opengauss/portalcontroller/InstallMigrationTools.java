@@ -128,35 +128,34 @@ public class InstallMigrationTools {
      * Uninstall mysql full migration tools.
      */
     public static void uninstallMysqlFullMigrationTools() {
-        RuntimeExecTools.removeFile(PortalControl.toolsConfigParametersTable.get(Chameleon.VENV_PATH) + "venv");
-        RuntimeExecTools.removeFile(PortalControl.toolsConfigParametersTable.get(Chameleon.PATH).replaceFirst("~", System.getProperty("user.home")));
-        RuntimeExecTools.removeFile(PortalControl.portalControlPath + "tmp/chameleon");
+        RuntimeExecTools.removeFile(PortalControl.toolsConfigParametersTable.get(Chameleon.VENV_PATH) + "venv",PortalControl.portalControlPath + "logs/error.log");
+        RuntimeExecTools.removeFile(PortalControl.toolsConfigParametersTable.get(Chameleon.PATH).replaceFirst("~", System.getProperty("user.home")),PortalControl.portalControlPath + "logs/error.log");
+        RuntimeExecTools.removeFile(PortalControl.portalControlPath + "tmp/chameleon",PortalControl.portalControlPath + "logs/error.log");
     }
 
     /**
      * Uninstall incremental migration tools.
      */
     public static void uninstallIncrementalMigrationTools() {
-        RuntimeExecTools.removeFile(PortalControl.toolsConfigParametersTable.get(Debezium.PATH));
-        RuntimeExecTools.removeFile(PortalControl.portalControlPath + "tmp/kafka-logs");
-        RuntimeExecTools.removeFile(PortalControl.portalControlPath + "tmp/zookeeper");
+        RuntimeExecTools.removeFile(PortalControl.toolsConfigParametersTable.get(Debezium.PATH),PortalControl.portalControlPath + "logs/error.log");
+        RuntimeExecTools.removeFile(PortalControl.portalControlPath + "tmp/kafka-logs",PortalControl.portalControlPath + "logs/error.log");
+        RuntimeExecTools.removeFile(PortalControl.portalControlPath + "tmp/zookeeper",PortalControl.portalControlPath + "logs/error.log");
     }
 
     /**
      * Uninstall datacheck tools.
      */
     public static void uninstallDatacheckTools() {
-        RuntimeExecTools.removeFile(PortalControl.toolsConfigParametersTable.get(Check.PATH));
-        RuntimeExecTools.removeFile(PortalControl.portalControlPath + "tmp/check_result");
+        RuntimeExecTools.removeFile(PortalControl.toolsConfigParametersTable.get(Check.PATH),PortalControl.portalControlPath + "logs/error.log");
     }
 
     /**
      * Uninstall reverse migration tools.
      */
     public static void uninstallReverseMigrationTools() {
-        RuntimeExecTools.removeFile(PortalControl.toolsConfigParametersTable.get(Debezium.PATH));
-        RuntimeExecTools.removeFile(PortalControl.portalControlPath + "tmp/kafka-logs");
-        RuntimeExecTools.removeFile(PortalControl.portalControlPath + "tmp/zookeeper");
+        RuntimeExecTools.removeFile(PortalControl.toolsConfigParametersTable.get(Debezium.PATH),PortalControl.portalControlPath + "logs/error.log");
+        RuntimeExecTools.removeFile(PortalControl.portalControlPath + "tmp/kafka-logs", PortalControl.portalControlPath + "logs/error.log");
+        RuntimeExecTools.removeFile(PortalControl.portalControlPath + "tmp/zookeeper", PortalControl.portalControlPath + "logs/error.log");
     }
 
     /**

@@ -112,12 +112,7 @@ public class PortalControl {
     /**
      * Thread to check process.
      */
-    public static ThreadCheckProcess threadCheckProcess = null;
-
-    /**
-     * Thread to execute plan.
-     */
-    public static ThreadExecPlan threadExecPlan = null;
+    public static ThreadCheckProcess threadCheckProcess = new ThreadCheckProcess();
 
     /**
      * Hashmap to save the parameters in commandline and their values.
@@ -155,6 +150,7 @@ public class PortalControl {
      * The constant threadGetOrder.
      */
     public static ThreadGetOrder threadGetOrder = new ThreadGetOrder();
+    public static ThreadStatusController threadStatusController = new ThreadStatusController();
 
 
     /**
@@ -187,10 +183,8 @@ public class PortalControl {
         Plan.createWorkspace(workspaceId);
         checkPath();
         Task.initTaskProcessMap();
-        threadCheckProcess = new ThreadCheckProcess();
         threadCheckProcess.setName("threadCheckProcess");
         threadCheckProcess.start();
-        ThreadStatusController threadStatusController = new ThreadStatusController();
         threadStatusController.setWorkspaceId(workspaceId);
         threadStatusController.start();
         noinput = PortalControl.commandLineParameterStringMap.get(Command.Parameters.SKIP).equals("true");

@@ -13,6 +13,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
+import java.util.ArrayList;
 import java.util.Hashtable;
 
 import static org.opengauss.portalcontroller.Plan.runningTaskList;
@@ -30,7 +31,7 @@ public class CheckTaskMysqlFullMigration implements CheckTask {
         String chameleonVenvPath = hashtable.get(Chameleon.VENV_PATH);
         String chameleonPkgPath = Tools.getPackagePath(Chameleon.PKG_PATH,Chameleon.PKG_NAME);
         Tools.createFile(chameleonVenvPath,false);
-        RuntimeExecTools.executeOrder("python3 -m venv " + chameleonVenvPath + "venv", 3000);
+        RuntimeExecTools.executeOrder("python3 -m venv " + chameleonVenvPath + "venv", 3000,PortalControl.portalControlPath + "logs/error.log");
         String[] cmdParts = (chameleonVenvPath + "venv/bin/pip3 install " + chameleonPkgPath).split(" ");
         RuntimeExecTools.executeOrder(cmdParts,3000,PortalControl.portalControlPath,PortalControl.portalControlPath + "logs/install_chameleon.log");
         try {
@@ -39,6 +40,7 @@ public class CheckTaskMysqlFullMigration implements CheckTask {
                 Thread.sleep(1000);
                 LOGGER.info("Installing chameleon...");
                 if (chameleonFile.exists()) {
+                    LOGGER.info("Chameleon has been installed.If you want to update the chameleon.Please uninstall the chameleon first.");
                     break;
                 }
             }
@@ -54,7 +56,7 @@ public class CheckTaskMysqlFullMigration implements CheckTask {
     public void copyConfigFiles(String workspaceId){
         Hashtable<String, String> hashtable = PortalControl.toolsConfigParametersTable;
         String chameleonVenvPath = hashtable.get(Chameleon.VENV_PATH);
-        RuntimeExecTools.executeOrder(chameleonVenvPath + "venv/bin/chameleon set_configuration_files", 3000);
+        RuntimeExecTools.executeOrder(chameleonVenvPath + "venv/bin/chameleon set_configuration_files", 3000, PortalControl.portalWorkSpacePath + "logs/error.log");
         String chameleonPath = hashtable.get(Chameleon.PATH).replaceFirst("~",System.getProperty("user.home"));
         String fileDirectory = chameleonPath + "configuration/";
         String newFileName = PortalControl.portalWorkSpacePath + "config/chameleon/default_"+ workspaceId +".yml";
@@ -87,10 +89,10 @@ public class CheckTaskMysqlFullMigration implements CheckTask {
         String chameleonVenv = Tools.getSinglePropertiesParameter(Chameleon.VENV_PATH, PortalControl.toolsConfigPath);
         Hashtable<String, String> chameleonParameterTable = new Hashtable<>();
         chameleonParameterTable.put("--config", "default_"+workspaceId);
-        task.useChameleonReplicaOrder(chameleonVenv, "drop_replica_schema", chameleonParameterTable,workspaceId);
-        task.useChameleonReplicaOrder(chameleonVenv, "create_replica_schema", chameleonParameterTable,workspaceId);
+        task.useChameleonReplicaOrder(chameleonVenv, "drop_replica_schema", chameleonParameterTable,workspaceId,true);
+        task.useChameleonReplicaOrder(chameleonVenv, "create_replica_schema", chameleonParameterTable,workspaceId,true);
         chameleonParameterTable.put("--source", "mysql");
-        task.useChameleonReplicaOrder(chameleonVenv, "add_source", chameleonParameterTable,workspaceId);
+        task.useChameleonReplicaOrder(chameleonVenv, "add_source", chameleonParameterTable,workspaceId,true);
         task.startChameleonReplicaOrder(chameleonVenv, "init_replica", chameleonParameterTable);
         PortalControl.status = Status.RUNNING_FULL_MIGRATION;
         LOGGER.info("Mysql full migration is running.");
@@ -103,12 +105,12 @@ public class CheckTaskMysqlFullMigration implements CheckTask {
         Hashtable<String, String> chameleonParameterTable = new Hashtable<>();
         chameleonParameterTable.put("--config", "default_"+workspaceId);
         chameleonParameterTable.put("--source", "mysql");
-        task.checkChameleonReplicaOrder("init_replica", chameleonParameterTable,workspaceId);
+        task.checkChameleonReplicaOrder("init_replica",false);
         if (PortalControl.toolsMigrationParametersTable.get(MigrationParameters.SNAPSHOT_OBJECT).equals("yes")) {
-            task.useChameleonReplicaOrder(chameleonVenv, "start_trigger_replica", chameleonParameterTable,workspaceId);
-            task.useChameleonReplicaOrder(chameleonVenv, "start_view_replica", chameleonParameterTable,workspaceId);
-            task.useChameleonReplicaOrder(chameleonVenv, "start_func_replica", chameleonParameterTable,workspaceId);
-            task.useChameleonReplicaOrder(chameleonVenv, "start_proc_replica", chameleonParameterTable,workspaceId);
+            task.useChameleonReplicaOrder(chameleonVenv, "start_trigger_replica", chameleonParameterTable,workspaceId,false);
+            task.useChameleonReplicaOrder(chameleonVenv, "start_view_replica", chameleonParameterTable,workspaceId,false);
+            task.useChameleonReplicaOrder(chameleonVenv, "start_func_replica", chameleonParameterTable,workspaceId,false);
+            task.useChameleonReplicaOrder(chameleonVenv, "start_proc_replica", chameleonParameterTable,workspaceId,false);
         }
         chameleonParameterTable.clear();
         LOGGER.info("Mysql full migration finished.");
@@ -120,13 +122,13 @@ public class CheckTaskMysqlFullMigration implements CheckTask {
         String chameleonVenv = Tools.getSinglePropertiesParameter(Chameleon.VENV_PATH, PortalControl.toolsConfigPath);
         Hashtable<String, String> chameleonParameterTable = new Hashtable<>();
         chameleonParameterTable.put("--config", "default_"+workspaceId);
-        task.useChameleonReplicaOrder(chameleonVenv,"drop_replica_schema", chameleonParameterTable,workspaceId);
+        task.useChameleonReplicaOrder(chameleonVenv,"drop_replica_schema", chameleonParameterTable,workspaceId,true);
         String chameleonVenvPath = PortalControl.toolsConfigParametersTable.get(Chameleon.VENV_PATH);
-        RuntimeExecTools.removeFile(chameleonVenvPath + "data_default_" + Plan.workspaceId + "_init_replica.json");
-        RuntimeExecTools.removeFile(chameleonVenvPath + "data_default_" + Plan.workspaceId + "_start_view_replica.json");
-        RuntimeExecTools.removeFile(chameleonVenvPath + "data_default_" + Plan.workspaceId + "_start_trigger_replica.json");
-        RuntimeExecTools.removeFile(chameleonVenvPath + "data_default_" + Plan.workspaceId + "_start_proc_replica.json");
-        RuntimeExecTools.removeFile(chameleonVenvPath + "data_default_" + Plan.workspaceId + "_start_func_replica.json");
+        RuntimeExecTools.removeFile(chameleonVenvPath + "data_default_" + Plan.workspaceId + "_init_replica.json",PortalControl.portalWorkSpacePath + "logs/error.log");
+        RuntimeExecTools.removeFile(chameleonVenvPath + "data_default_" + Plan.workspaceId + "_start_view_replica.json", PortalControl.portalWorkSpacePath + "logs/error.log");
+        RuntimeExecTools.removeFile(chameleonVenvPath + "data_default_" + Plan.workspaceId + "_start_trigger_replica.json", PortalControl.portalWorkSpacePath + "logs/error.log");
+        RuntimeExecTools.removeFile(chameleonVenvPath + "data_default_" + Plan.workspaceId + "_start_proc_replica.json", PortalControl.portalWorkSpacePath + "logs/error.log");
+        RuntimeExecTools.removeFile(chameleonVenvPath + "data_default_" + Plan.workspaceId + "_start_func_replica.json", PortalControl.portalWorkSpacePath + "logs/error.log");
     }
 
     public void checkEnd(){

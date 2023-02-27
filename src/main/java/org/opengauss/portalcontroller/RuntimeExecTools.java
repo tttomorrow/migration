@@ -27,11 +27,11 @@ public class RuntimeExecTools {
      * @param command Command to execute.
      * @param time    Time with unit milliseconds.If timeout,the process will exit.
      */
-    public static void executeOrder(String command, int time) {
+    public static void executeOrder(String command, int time,String errorFilePath) {
         ProcessBuilder processBuilder = new ProcessBuilder();
         String[] commands = command.split(" ");
         processBuilder.command(commands);
-        processBuilder.redirectError(new File(PortalControl.portalControlPath + "logs/error.log"));
+        processBuilder.redirectError(new File(errorFilePath));
         try {
             Process process = processBuilder.start();
             String errorStr = getInputStreamString(process.getErrorStream());
@@ -47,9 +47,11 @@ public class RuntimeExecTools {
             }
         } catch (IOException e) {
             LOGGER.error("IO exception occurred in execute command " + command);
+            Tools.stopPortal();
             Thread.interrupted();
         } catch (InterruptedException e) {
             LOGGER.error("Interrupted exception occurred in execute command " + command);
+            Tools.stopPortal();
             Thread.interrupted();
         }
     }
@@ -67,7 +69,7 @@ public class RuntimeExecTools {
         String[] commands = command.split(" ");
         processBuilder.directory(new File(workDirectory));
         processBuilder.command(commands);
-        processBuilder.redirectError(new File(PortalControl.portalControlPath + "logs/error.log"));
+        processBuilder.redirectErrorStream(true);
         processBuilder.redirectOutput(new File(outputFilePath));
         try {
             Process process = processBuilder.start();
@@ -78,6 +80,14 @@ public class RuntimeExecTools {
                     LOGGER.info("Execute order finished.");
                 } else {
                     LOGGER.error(errorStr);
+                    BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+                    String str = bufferedReader.readLine();
+                    bufferedReader.close();
+                    BufferedWriter bufferedWriter = new BufferedWriter(new FileWriter(outputFilePath,true));
+                    bufferedWriter.write(str);
+                    bufferedWriter.write(errorStr);
+                    bufferedWriter.flush();
+                    bufferedWriter.close();
                 }
             } else {
                 process.waitFor(time, TimeUnit.MILLISECONDS);
@@ -114,13 +124,16 @@ public class RuntimeExecTools {
                 BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(process.getInputStream()));
                 String str = bufferedReader.readLine();
                 bufferedReader.close();
-                BufferedWriter bufferedWriter = new BufferedWriter(new FileWriter(outputFilePath));
+                BufferedWriter bufferedWriter = new BufferedWriter(new FileWriter(outputFilePath,true));
                 bufferedWriter.write(str);
+                bufferedWriter.flush();
+                bufferedWriter.write(errorStr);
                 bufferedWriter.flush();
                 bufferedWriter.close();
             }
         } catch (IOException e) {
             LOGGER.error("IO exception occurred in execute commands.");
+
             Thread.interrupted();
         } catch (InterruptedException e) {
             LOGGER.error("Interrupted exception occurred in execute commands.");
@@ -141,21 +154,21 @@ public class RuntimeExecTools {
         ProcessBuilder processBuilder = new ProcessBuilder();
         processBuilder.command(cmdParts);
         processBuilder.directory(new File(workDirectory));
-        processBuilder.redirectError(new File(PortalControl.portalControlPath + "error.log"));
+        processBuilder.redirectErrorStream(true);
         processBuilder.redirectOutput(new File(outputFilePath));
         try {
             Process process = processBuilder.start();
-            String errorStr = getInputStreamString(process.getErrorStream());
             if (time == 0) {
                 int retCode = process.waitFor();
                 if (retCode == 0) {
                     LOGGER.info("Execute order finished.");
                 } else {
-                    LOGGER.error(errorStr);
+                    LOGGER.error("Execute order failed.");
                 }
             } else {
                 process.waitFor(time, TimeUnit.MILLISECONDS);
             }
+
         } catch (IOException e) {
             LOGGER.error("IO exception occurred in execute commands.");
         } catch (InterruptedException e) {
@@ -181,7 +194,7 @@ public class RuntimeExecTools {
             Thread.interrupted();
         }
         String command = "wget -c -P " + path + " " + url + " --no-check-certificate";
-        executeOrder(command, 600000);
+        executeOrder(command, 600000,PortalControl.portalControlPath + "logs/error.log");
         LOGGER.info("Download file " + url + " to " + path + " finished.");
     }
 
@@ -214,7 +227,7 @@ public class RuntimeExecTools {
      */
     public static void copyFile(String filePath, String directory) {
         String command = "cp -R " + filePath + " " + directory;
-        executeOrder(command, 60000);
+        executeOrder(command, 60000,PortalControl.portalWorkSpacePath + "logs/error.log");
     }
 
     /**
@@ -226,7 +239,7 @@ public class RuntimeExecTools {
     public static void copyFileNotExist(String filePath, String directory) {
         if(new File(filePath).exists()){
             String command = "cp -R " + filePath + " " + directory;
-            executeOrder(command, 60000);
+            executeOrder(command, 60000,PortalControl.portalWorkSpacePath + "logs/error.log");
         }
     }
 
@@ -236,10 +249,10 @@ public class RuntimeExecTools {
      *
      * @param path Filepath.
      */
-    public static void removeFile(String path) {
+    public static void removeFile(String path,String errorFilePath) {
         if(new File(path).exists()){
             String command = "rm -rf " + path;
-            executeOrder(command, 60000);
+            executeOrder(command, 60000,errorFilePath);
             LOGGER.info("Remove file " + path + " finished.");
         }else{
             LOGGER.info("No file " + path + " to remove.");
@@ -260,11 +273,11 @@ public class RuntimeExecTools {
         }
         if (packagePath.endsWith(".zip")) {
             command = "unzip " + packagePath + " " + directory;
-            executeOrder(command, 300000);
+            executeOrder(command, 300000,PortalControl.portalControlPath + "logs/error.log");
             LOGGER.info("Unzip file finished.");
         } else if (packagePath.endsWith(".tar.gz") || packagePath.endsWith(".tgz")) {
             command = "tar -zxf " + packagePath + " -C " + directory;
-            executeOrder(command, 300000);
+            executeOrder(command, 300000,PortalControl.portalControlPath + "logs/error.log");
             LOGGER.info("Unzip file " + packagePath + " to " + directory + " finished.");
         } else {
             LOGGER.error("Invalid package path.Please check if the package is ends with .zip or .tar.gz");
@@ -279,7 +292,7 @@ public class RuntimeExecTools {
      */
     public static void rename(String oldName, String newName) {
         String command = "mv " + oldName + " " + newName;
-        executeOrder(command, 600000);
+        executeOrder(command, 600000,PortalControl.portalWorkSpacePath + "logs/error.log");
         LOGGER.info("Rename file " + oldName + " to " + newName + " finished.");
     }
 }
