@@ -250,7 +250,7 @@ public class Task {
             while (!Plan.stopPlan) {
                 Thread.sleep(1000);
                 if(isInstantCommand && i > 5){
-                    LOGGER.error("Time out to execute order " + order + ".Please read " + PortalControl.portalWorkSpacePath + "logs/error.log to get error message.");
+                    LOGGER.error("Time out to execute order " + order + ".Please read " + PortalControl.portalWorkSpacePath + "logs/full_migration.log to get error message.");
                 }else{
                     LOGGER.info(order + " running");
                 }
