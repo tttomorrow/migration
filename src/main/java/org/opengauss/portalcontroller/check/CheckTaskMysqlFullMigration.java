@@ -105,7 +105,7 @@ public class CheckTaskMysqlFullMigration implements CheckTask {
         Hashtable<String, String> chameleonParameterTable = new Hashtable<>();
         chameleonParameterTable.put("--config", "default_"+workspaceId);
         chameleonParameterTable.put("--source", "mysql");
-        task.checkChameleonReplicaOrder("init_replica",false);
+        task.checkChameleonReplicaOrder("init_replica",chameleonParameterTable,false);
         if (PortalControl.toolsMigrationParametersTable.get(MigrationParameters.SNAPSHOT_OBJECT).equals("yes")) {
             task.useChameleonReplicaOrder(chameleonVenv, "start_trigger_replica", chameleonParameterTable,workspaceId,false);
             task.useChameleonReplicaOrder(chameleonVenv, "start_view_replica", chameleonParameterTable,workspaceId,false);

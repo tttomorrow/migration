@@ -56,13 +56,13 @@ public class CheckTaskReverseMigration implements CheckTask {
         hashtable1.put("database.history.kafka.topic","opengauss_server_" + workspaceId + "_history");
         hashtable1.put("transforms.route.regex","^"+"opengauss_server_" + workspaceId+"(.*)");
         hashtable1.put("transforms.route.replacement","opengauss_server_" + workspaceId + "_topic");
-        hashtable1.put("file.path",portalWorkSpacePath + "logs/incremental_migration_source.txt");
+        hashtable1.put("file.path",portalWorkSpacePath + "status/incremental_migration_source");
         hashtable1.put("slot.name","slot_" + workspaceId);
         Tools.changePropertiesParameters(hashtable1,sourceConfigPath);
         Hashtable<String,String> hashtable2 = new Hashtable<>();
         hashtable2.put("name","opengauss-sink-" + workspaceId);
         hashtable2.put("topics","opengauss_server_" + workspaceId + "_topic");
-        hashtable2.put("file.path",portalWorkSpacePath + "logs/reverse_migration_sink.txt");
+        hashtable2.put("file.path",portalWorkSpacePath + "status/reverse_migration_sink");
         Tools.changePropertiesParameters(hashtable2,sinkConfigPath);
     }
 
@@ -94,13 +94,19 @@ public class CheckTaskReverseMigration implements CheckTask {
         Tools.changeConnectXmlFile(workspaceId + "_reverse", confluentPath + "etc/kafka/connect-log4j.properties");
         Task.startTaskMethod(Method.Run.REVERSE_CONNECT_SINK,8000);
         PortalControl.status = Status.RUNNING_REVERSE_MIGRATION;
-        while (!Plan.stopPlan) {
+        while (!Plan.stopPlan && !Plan.stopReverseMigration && !PortalControl.taskList.contains("start mysql reverse migration datacheck")) {
             try {
                 LOGGER.info("Reverse migration is running...");
                 Thread.sleep(1000);
             } catch (InterruptedException e) {
                 LOGGER.error("Interrupted exception occurred in running reverse migraiton.");
             }
+        }
+        if(Plan.stopReverseMigration){
+            PortalControl.status = Status.REVERSE_MIGRATION_FINISHED;
+            Task.stopTaskMethod(Method.Run.REVERSE_CONNECT_SINK);
+            Task.stopTaskMethod(Method.Run.REVERSE_CONNECT_SOURCE);
+            LOGGER.info("Reverse migration stopped.");
         }
     }
 

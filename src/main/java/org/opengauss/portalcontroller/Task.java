@@ -25,9 +25,11 @@ import org.opengauss.portalcontroller.constant.Check;
 import org.opengauss.portalcontroller.constant.Command;
 import org.opengauss.portalcontroller.constant.Debezium;
 import org.opengauss.portalcontroller.constant.Method;
+import org.opengauss.portalcontroller.status.PortalStatusWriter;
 import org.slf4j.LoggerFactory;
 
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -213,7 +215,7 @@ public class Task {
      */
     public void useChameleonReplicaOrder(String chameleonVenvPath, String order, Hashtable<String, String> parametersTable,String workspaceId,boolean isInstantCommand) {
         startChameleonReplicaOrder(chameleonVenvPath, order, parametersTable);
-        checkChameleonReplicaOrder(order, isInstantCommand);
+        checkChameleonReplicaOrder(order, parametersTable, isInstantCommand);
     }
 
     /**
@@ -227,12 +229,8 @@ public class Task {
         if (Plan.stopPlan) {
             return;
         }
-        StringBuilder chameleonOrder = new StringBuilder("venv/bin/chameleon " + order + " ");
-        for (String key : parametersTable.keySet()) {
-            chameleonOrder.append(key).append(" ").append(parametersTable.get(key)).append(" ");
-        }
-        chameleonOrder = chameleonOrder.append("--debug");
-        RuntimeExecTools.executeOrder(chameleonOrder.toString(), 2000,chameleonVenvPath,PortalControl.portalWorkSpacePath + "logs/full_migration.log");
+        String chameleonOrder = Tools.jointChameleonOrders(parametersTable,order);
+        RuntimeExecTools.executeOrder(chameleonOrder, 2000,chameleonVenvPath,PortalControl.portalWorkSpacePath + "logs/full_migration.log");
     }
 
     /**
@@ -240,7 +238,7 @@ public class Task {
      *
      * @param order           the order
      */
-    public void checkChameleonReplicaOrder(String order, boolean isInstantCommand) {
+    public void checkChameleonReplicaOrder(String order,Hashtable<String, String> parametersTable,boolean isInstantCommand) {
         try {
             if (Plan.stopPlan) {
                 return;
@@ -249,17 +247,19 @@ public class Task {
             String endFlag = order + " finished";
             while (!Plan.stopPlan) {
                 Thread.sleep(1000);
-                if(isInstantCommand && i > 5){
-                    LOGGER.error("Time out to execute order " + order + ".Please read " + PortalControl.portalWorkSpacePath + "logs/full_migration.log to get error message.");
+                i++;
+                String processString = Tools.jointChameleonOrders(parametersTable,order);
+                if(Tools.getCommandPid(processString) == -1){
+                    if (Tools.lastLine(PortalControl.portalWorkSpacePath + "logs/full_migration.log").contains(endFlag)) {
+                        LOGGER.info(order + " finished");
+                        break;
+                    }else{
+                        LOGGER.error("Process " + processString + " exit abnormally.Please read "+ PortalControl.portalWorkSpacePath + "logs/full_migration.log or error.log to get information.");
+                    }
                 }else{
                     LOGGER.info(order + " running");
                 }
-                i++;
-                if (Tools.lastLine(PortalControl.portalWorkSpacePath + "logs/full_migration.log").contains(endFlag)) {
-                    break;
-                }
             }
-            LOGGER.info(order + " finished");
         } catch (InterruptedException e) {
             LOGGER.error("Interrupted exception occurred in starting task.");
         }
@@ -367,7 +367,7 @@ public class Task {
      */
     public void runReverseKafkaConnectSource(String path) {
         RuntimeExecTools.executeOrder(path + "bin/connect-standalone -daemon " + PortalControl.portalWorkSpacePath + "config/debezium/connect-avro-standalone-reverse-source.properties " + PortalControl.portalWorkSpacePath + "config/debezium/opengauss-source.properties", 5000,PortalControl.portalWorkSpacePath + "logs/error.log");
-        LOGGER.info("Start reverseKafkaConnect.");
+        LOGGER.info("Start reverseKafkaConnect source.");
     }
 
 
@@ -378,7 +378,7 @@ public class Task {
      */
     public void runReverseKafkaConnectSink(String path) {
         RuntimeExecTools.executeOrder(path + "bin/connect-standalone -daemon " + PortalControl.portalWorkSpacePath + "config/debezium/connect-avro-standalone-reverse-sink.properties " + PortalControl.portalWorkSpacePath + "config/debezium/opengauss-sink.properties", 5000,PortalControl.portalWorkSpacePath + "logs/error.log");
-        LOGGER.info("Start reverseKafkaConnect.");
+        LOGGER.info("Start reverseKafkaConnect sink.");
     }
 
     /**
@@ -411,7 +411,7 @@ public class Task {
         if (pid != -1) {
             RuntimeExecTools.executeOrder("kill -15 " + pid, 2000,PortalControl.portalWorkSpacePath + "logs/error.log");
         }
-        LOGGER.info("Stop reverseKafkaConnect.");
+        LOGGER.info("Stop reverseKafkaConnect source.");
     }
 
     /**
@@ -422,7 +422,7 @@ public class Task {
         if (pid != -1) {
             RuntimeExecTools.executeOrder("kill -15 " + pid, 2000,PortalControl.portalWorkSpacePath + "logs/error.log");
         }
-        LOGGER.info("Stop reverseKafkaConnect.");
+        LOGGER.info("Stop reverseKafkaConnect sink.");
     }
 
     /**
@@ -462,7 +462,7 @@ public class Task {
         int pid = -1;
         pid = Tools.getCommandPid(taskProcessMap.get(Method.Run.CHECK));
         if (pid != -1) {
-            RuntimeExecTools.executeOrder("kill -15 " + pid, 3000,PortalControl.portalWorkSpacePath + "logs/error.log");
+            RuntimeExecTools.executeOrder("kill -9 " + pid, 3000,PortalControl.portalWorkSpacePath + "logs/error.log");
         }
         LOGGER.info("Stop datacheck.");
     }
@@ -474,7 +474,7 @@ public class Task {
         int pid = -1;
         pid = Tools.getCommandPid(taskProcessMap.get(Method.Run.CHECK_SINK));
         if (pid != -1) {
-            RuntimeExecTools.executeOrder("kill -15 " + pid, 3000,PortalControl.portalWorkSpacePath + "logs/error.log");
+            RuntimeExecTools.executeOrder("kill -9 " + pid, 3000,PortalControl.portalWorkSpacePath + "logs/error.log");
         }
         LOGGER.info("Stop datacheck sink.");
     }
@@ -486,7 +486,7 @@ public class Task {
         int pid = -1;
         pid = Tools.getCommandPid(taskProcessMap.get(Method.Run.CHECK_SOURCE));
         if (pid != -1) {
-            RuntimeExecTools.executeOrder("kill -15 " + pid, 3000,PortalControl.portalWorkSpacePath + "logs/error.log" );
+            RuntimeExecTools.executeOrder("kill -9 " + pid, 3000,PortalControl.portalWorkSpacePath + "logs/error.log" );
         }
         LOGGER.info("Stop datacheck source.");
     }

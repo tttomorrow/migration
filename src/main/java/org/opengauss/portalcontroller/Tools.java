@@ -1289,4 +1289,16 @@ public class Tools {
         PortalControl.threadGetOrder.exit = true;
         PortalControl.threadStatusController.exit = true;
     }
+
+    public static String jointChameleonOrders(Hashtable<String, String> chameleonParameterTable ,String order){
+        String result = "";
+        String chameleonVenvPath = PortalControl.toolsConfigParametersTable.get(Chameleon.VENV_PATH);
+        StringBuilder chameleonOrder = new StringBuilder(chameleonVenvPath + "venv/bin/chameleon " + order + " ");
+        for (String key : chameleonParameterTable.keySet()) {
+            chameleonOrder.append(key).append(" ").append(chameleonParameterTable.get(key)).append(" ");
+        }
+        chameleonOrder.append("--debug");
+        result = chameleonOrder.toString();
+        return result;
+    }
 }

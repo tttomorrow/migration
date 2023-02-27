@@ -40,10 +40,15 @@ public class RuntimeExecTools {
                 if (retCode == 0) {
                     LOGGER.info("Execute order finished.");
                 } else {
-                    LOGGER.error(errorStr);
+                    if(!errorStr.equals("")){
+                        LOGGER.error(errorStr);
+                    }
                 }
             } else {
                 process.waitFor(time, TimeUnit.MILLISECONDS);
+                if(!errorStr.equals("")){
+                    LOGGER.error(errorStr);
+                }
             }
         } catch (IOException e) {
             LOGGER.error("IO exception occurred in execute command " + command);
@@ -69,28 +74,44 @@ public class RuntimeExecTools {
         String[] commands = command.split(" ");
         processBuilder.directory(new File(workDirectory));
         processBuilder.command(commands);
-        processBuilder.redirectErrorStream(true);
-        processBuilder.redirectOutput(new File(outputFilePath));
         try {
             Process process = processBuilder.start();
-            String errorStr = getInputStreamString(process.getErrorStream());
+            String errorStr = "";
             if (time == 0) {
                 int retCode = process.waitFor();
                 if (retCode == 0) {
                     LOGGER.info("Execute order finished.");
                 } else {
-                    LOGGER.error(errorStr);
-                    BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(process.getInputStream()));
-                    String str = bufferedReader.readLine();
-                    bufferedReader.close();
-                    BufferedWriter bufferedWriter = new BufferedWriter(new FileWriter(outputFilePath,true));
-                    bufferedWriter.write(str);
-                    bufferedWriter.write(errorStr);
-                    bufferedWriter.flush();
-                    bufferedWriter.close();
+                    errorStr = getInputStreamString(process.getErrorStream());
+                    if(!errorStr.equals("")){
+                        LOGGER.error(errorStr);
+                    }
                 }
             } else {
                 process.waitFor(time, TimeUnit.MILLISECONDS);
+                errorStr = getInputStreamString(process.getErrorStream());
+                BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+                String str = "";
+                String temp = "";
+                BufferedWriter bufferedOutputWriter = new BufferedWriter(new FileWriter(outputFilePath,true));
+                while((temp = bufferedReader.readLine()) != null){
+                    str += temp + System.lineSeparator();
+                    if(!temp.equals("")){
+                        bufferedOutputWriter.write(temp + System.lineSeparator());
+                        bufferedOutputWriter.flush();
+                    }
+                }
+                bufferedReader.close();
+                bufferedOutputWriter.close();
+                if(!errorStr.equals("")){
+                    LOGGER.error(errorStr);
+                }
+                BufferedWriter bufferedErrorWriter = new BufferedWriter(new FileWriter(PortalControl.portalWorkSpacePath + "logs/error.log",true));
+                if(!errorStr.equals("")){
+                    bufferedErrorWriter.write(errorStr);
+                    bufferedErrorWriter.flush();
+                }
+                bufferedErrorWriter.close();
             }
         } catch (IOException e) {
             LOGGER.error("IO exception occurred in execute command " + command);
@@ -133,10 +154,11 @@ public class RuntimeExecTools {
             }
         } catch (IOException e) {
             LOGGER.error("IO exception occurred in execute commands.");
-
+            Tools.stopPortal();
             Thread.interrupted();
         } catch (InterruptedException e) {
             LOGGER.error("Interrupted exception occurred in execute commands.");
+            Tools.stopPortal();
             Thread.interrupted();
         }
     }
@@ -206,11 +228,11 @@ public class RuntimeExecTools {
      */
     public static String getInputStreamString(InputStream in) {
         BufferedReader br = new BufferedReader(new InputStreamReader(in));
-        String str;
+        String str = "";
         StringBuilder sb = new StringBuilder();
         try {
             while ((str = br.readLine()) != null) {
-                sb.append(str);
+                sb.append(str + System.lineSeparator());
             }
         } catch (IOException e) {
             LOGGER.error("IO exception occurred in get inputStream.");
