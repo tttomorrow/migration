@@ -44,9 +44,10 @@ public class ThreadExecPlan extends Thread implements Runnable {
      *
      * @param workspaceId the workspace id
      */
-    public ThreadExecPlan (String workspaceId){
+    public ThreadExecPlan(String workspaceId) {
         this.workspaceId = workspaceId;
     }
+
     @Override
     public void run() {
         Plan.getInstance(this.workspaceId).execPlan(PortalControl.taskList);

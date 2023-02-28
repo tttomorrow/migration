@@ -42,33 +42,33 @@ public class CheckTaskIncrementalMigration implements CheckTask {
     public void changeParameters(String workspaceId) {
         Hashtable<String, String> hashtable = PortalControl.toolsConfigParametersTable;
         String kafkaPath = hashtable.get(Debezium.Kafka.PATH);
-        Tools.changeSinglePropertiesParameter("dataDir",PortalControl.portalControlPath + "tmp/zookeeper", kafkaPath + "config/zookeeper.properties");
-        Tools.changeSinglePropertiesParameter("log.dirs",PortalControl.portalControlPath + "tmp/kafka-logs", kafkaPath + "config/server.properties");
+        Tools.changeSinglePropertiesParameter("dataDir", PortalControl.portalControlPath + "tmp/zookeeper", kafkaPath + "config/zookeeper.properties");
+        Tools.changeSinglePropertiesParameter("log.dirs", PortalControl.portalControlPath + "tmp/kafka-logs", kafkaPath + "config/server.properties");
         String sourceConfigPath = PortalControl.portalWorkSpacePath + "config/debezium/mysql-source.properties";
         String sinkConfigPath = PortalControl.portalWorkSpacePath + "config/debezium/mysql-sink.properties";
-        Hashtable<String,String> hashtable1 = new Hashtable<>();
-        hashtable1.put("name","mysql-source-" + workspaceId);
-        hashtable1.put("database.server.name","mysql_server_" + workspaceId);
-        hashtable1.put("database.history.kafka.topic","mysql_server_" + workspaceId + "_history");
-        hashtable1.put("transforms.route.regex","^"+"mysql_server_" + workspaceId+"(.*)");
-        hashtable1.put("transforms.route.replacement","mysql_server_" + workspaceId + "_topic");
-        hashtable1.put("file.path", portalWorkSpacePath + "status/incremental_migration_source");
-        Tools.changePropertiesParameters(hashtable1,sourceConfigPath);
-        Hashtable<String,String> hashtable2 = new Hashtable<>();
-        hashtable2.put("name","mysql-sink-" + workspaceId);
-        hashtable2.put("topics","mysql_server_" + workspaceId + "_topic");
-        hashtable2.put("file.path",portalWorkSpacePath + "status/incremental_migration_sink");
-        Tools.changePropertiesParameters(hashtable2,sinkConfigPath);
+        Hashtable<String, String> hashtable1 = new Hashtable<>();
+        hashtable1.put("name", "mysql-source-" + workspaceId);
+        hashtable1.put("database.server.name", "mysql_server_" + workspaceId);
+        hashtable1.put("database.history.kafka.topic", "mysql_server_" + workspaceId + "_history");
+        hashtable1.put("transforms.route.regex", "^" + "mysql_server_" + workspaceId + "(.*)");
+        hashtable1.put("transforms.route.replacement", "mysql_server_" + workspaceId + "_topic");
+        hashtable1.put("file.path", portalWorkSpacePath + "status/incremental");
+        Tools.changePropertiesParameters(hashtable1, sourceConfigPath);
+        Hashtable<String, String> hashtable2 = new Hashtable<>();
+        hashtable2.put("name", "mysql-sink-" + workspaceId);
+        hashtable2.put("topics", "mysql_server_" + workspaceId + "_topic");
+        hashtable2.put("file.path", portalWorkSpacePath + "status/incremental");
+        Tools.changePropertiesParameters(hashtable2, sinkConfigPath);
     }
 
     @Override
     public void prepareWork(String workspaceId) {
-        Tools.changeIncrementalMigrationParameters(PortalControl.toolsMigrationParametersTable,workspaceId);
+        Tools.changeIncrementalMigrationParameters(PortalControl.toolsMigrationParametersTable, workspaceId);
         changeParameters(workspaceId);
         if (!checkNecessaryProcessExist()) {
-            Task.startTaskMethod(Method.Run.ZOOKEEPER,8000);
-            Task.startTaskMethod(Method.Run.KAFKA,8000);
-            Task.startTaskMethod(Method.Run.REGISTRY,8000);
+            Task.startTaskMethod(Method.Run.ZOOKEEPER, 8000);
+            Task.startTaskMethod(Method.Run.KAFKA, 8000);
+            Task.startTaskMethod(Method.Run.REGISTRY, 8000);
         }
         if (checkAnotherConnectExists()) {
             LOGGER.error("Another connector is running.Cannot run incremental migration whose workspace id is " + workspaceId + " .");
@@ -78,9 +78,9 @@ public class CheckTaskIncrementalMigration implements CheckTask {
         String confluentPath = PortalControl.toolsConfigParametersTable.get(Debezium.Confluent.PATH);
         Tools.changeConnectXmlFile(workspaceId, confluentPath + "etc/kafka/connect-log4j.properties");
         String standaloneSourcePath = PortalControl.portalWorkSpacePath + "config/debezium/connect-avro-standalone-source.properties";
-        int port = Tools.getAvailablePorts(1,1000).get(0);
-        Tools.changeSinglePropertiesParameter("rest.port",String.valueOf(port),standaloneSourcePath);
-        Task.startTaskMethod(Method.Run.CONNECT_SOURCE,8000);
+        int port = Tools.getAvailablePorts(1, 1000).get(0);
+        Tools.changeSinglePropertiesParameter("rest.port", String.valueOf(port), standaloneSourcePath);
+        Task.startTaskMethod(Method.Run.CONNECT_SOURCE, 8000);
     }
 
     @Override
@@ -89,9 +89,9 @@ public class CheckTaskIncrementalMigration implements CheckTask {
         String standaloneSinkFilePath = PortalControl.portalWorkSpacePath + "config/debezium/connect-avro-standalone-sink.properties";
         String confluentPath = PortalControl.toolsConfigParametersTable.get(Debezium.Confluent.PATH);
         Tools.changeConnectXmlFile(workspaceId, confluentPath + "etc/kafka/connect-log4j.properties");
-        int port = Tools.getAvailablePorts(1,1000).get(0);
-        Tools.changeSinglePropertiesParameter("rest.port",String.valueOf(port),standaloneSinkFilePath);
-        Task.startTaskMethod(Method.Run.CONNECT_SINK,8000);
+        int port = Tools.getAvailablePorts(1, 1000).get(0);
+        Tools.changeSinglePropertiesParameter("rest.port", String.valueOf(port), standaloneSinkFilePath);
+        Task.startTaskMethod(Method.Run.CONNECT_SINK, 8000);
         PortalControl.status = Status.RUNNING_INCREMENTAL_MIGRATION;
         checkEnd();
     }
@@ -106,7 +106,7 @@ public class CheckTaskIncrementalMigration implements CheckTask {
                 LOGGER.error("Interrupted exception occurred in running incremental migraiton.");
             }
         }
-        if(Plan.stopIncrementalMigration){
+        if (Plan.stopIncrementalMigration) {
             Task task = new Task();
             PortalControl.status = Status.INCREMENTAL_MIGRATION_FINISHED;
             task.stopTaskMethod(Method.Run.CONNECT_SINK);

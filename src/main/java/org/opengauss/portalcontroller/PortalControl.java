@@ -144,12 +144,18 @@ public class PortalControl {
      */
     public static boolean fullDatacheckFinished = false;
 
+    /**
+     * The constant startPort.
+     */
     public static int startPort = 10000;
 
     /**
      * The constant threadGetOrder.
      */
     public static ThreadGetOrder threadGetOrder = new ThreadGetOrder();
+    /**
+     * The constant threadStatusController.
+     */
     public static ThreadStatusController threadStatusController = new ThreadStatusController();
 
 
@@ -160,7 +166,7 @@ public class PortalControl {
      */
     public static void main(String[] args) {
         File file = new File("/data1/lt/test/portal/workspace");
-        if(file.exists() && file.isDirectory()){
+        if (file.exists() && file.isDirectory()) {
             int workspaces = Objects.requireNonNull(file.listFiles()).length;
             startPort += workspaces * 50;
         }
@@ -343,8 +349,8 @@ public class PortalControl {
             }
         }
         pps.clear();
-        Tools.changePropertiesParameters(PortalControl.toolsConfigParametersTable,PortalControl.portalWorkSpacePath + "config/toolspath.properties");
-        Tools.changePropertiesParameters(PortalControl.toolsMigrationParametersTable,PortalControl.portalWorkSpacePath + "config/migrationConfig.properties");
+        Tools.changePropertiesParameters(PortalControl.toolsConfigParametersTable, PortalControl.portalWorkSpacePath + "config/toolspath.properties");
+        Tools.changePropertiesParameters(PortalControl.toolsMigrationParametersTable, PortalControl.portalWorkSpacePath + "config/migrationConfig.properties");
     }
 
     /**

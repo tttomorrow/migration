@@ -210,10 +210,10 @@ public final class Plan {
                         checkTaskIncrementalDatacheck.start(workspaceId);
                     }
                     Tools.waitForIncrementalSignal("Incremental migration has stopped.");
-                    if(runReverseMigration || stopPlan) {
+                    if (runReverseMigration || stopPlan) {
                         break;
                     }
-                    if(runIncrementalMigration){
+                    if (runIncrementalMigration) {
                         checkTaskIncrementalMigration.prepareWork(workspaceId);
                     }
                 }
@@ -227,7 +227,7 @@ public final class Plan {
                         checkTaskReverseDatacheck.start(workspaceId);
                     }
                     Tools.waitForReverseSignal("Reverse migration has stopped.");
-                    if(stopPlan){
+                    if (stopPlan) {
                         break;
                     }
                 }
@@ -277,7 +277,7 @@ public final class Plan {
     public static boolean checkRunningThreads() {
         boolean flag = true;
         try {
-            File file = new File(portalWorkSpacePath + "status/portal.txt");
+            File file = new File(portalWorkSpacePath + "portal-running-threads.txt");
             BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(file)));
             if (Plan.isPlanRunnable) {
                 bw.write("Plan status: runnable" + System.lineSeparator());
@@ -339,32 +339,32 @@ public final class Plan {
     public static boolean createWorkspace(String workspaceId) {
         boolean flag = true;
         String path = portalControlPath + "workspace/" + workspaceId + "/";
-            Tools.createFile(path, false);
-            Tools.createFile(path + "tmp", false);
-            Tools.createFile(path + "logs",false);
-            workspacePath = path;
-            RuntimeExecTools.copyFile(portalControlPath + "config", path);
-            Tools.createFile(portalWorkSpacePath + "status/", false);
-            Tools.createFile(portalWorkSpacePath + "status/portal.txt", true);
-            Tools.createFile(portalWorkSpacePath + "status/full_migration.txt", true);
-            Tools.createFile(portalWorkSpacePath + "status/incremental_migration.txt", true);
-            Tools.createFile(portalWorkSpacePath + "status/reverse_migration.txt", true);
-            Tools.createFile(portalWorkSpacePath + "logs/debezium/", false);
-            Tools.createFile(portalWorkSpacePath + "logs/datacheck/", false);
-            initHashTable();
-            String debeziumConfigPath = portalWorkSpacePath + "config/debezium/";
-            Hashtable<String,String> table2 = new Hashtable<>();
-            table2.put("offset.storage.file.filename", portalWorkSpacePath + "tmp/connect.offsets");
-            table2.put("plugin.path", "share/java, " + PortalControl.toolsConfigParametersTable.get(Debezium.Connector.PATH));
-            Tools.changePropertiesParameters(table2,debeziumConfigPath + "connect-avro-standalone.properties");
-            RuntimeExecTools.copyFile(debeziumConfigPath + "connect-avro-standalone.properties",debeziumConfigPath + "connect-avro-standalone-source.properties");
-            RuntimeExecTools.copyFile(debeziumConfigPath + "connect-avro-standalone.properties",debeziumConfigPath + "connect-avro-standalone-sink.properties");
-            RuntimeExecTools.copyFile(debeziumConfigPath + "connect-avro-standalone.properties",debeziumConfigPath + "connect-avro-standalone-reverse-source.properties");
-            RuntimeExecTools.copyFile(debeziumConfigPath + "connect-avro-standalone.properties",debeziumConfigPath + "connect-avro-standalone-reverse-sink.properties");
-            Tools.changeFile("/tmp/datacheck/logs", portalWorkSpacePath + "/logs/datacheck",portalWorkSpacePath + "config/datacheck/log4j2.xml");
-            Tools.changeFile("/tmp/datacheck/logs", portalWorkSpacePath + "/logs/datacheck",portalWorkSpacePath + "config/datacheck/log4j2source.xml");
-            Tools.changeFile("/tmp/datacheck/logs", portalWorkSpacePath + "/logs/datacheck",portalWorkSpacePath + "config/datacheck/log4j2sink.xml");
-            Tools.changeCommandLineParameters();
+        Tools.createFile(path, false);
+        Tools.createFile(path + "tmp", false);
+        Tools.createFile(path + "logs", false);
+        workspacePath = path;
+        RuntimeExecTools.copyFile(portalControlPath + "config", path);
+        Tools.createFile(portalWorkSpacePath + "status/", false);
+        Tools.createFile(portalWorkSpacePath + "status/portal.txt", true);
+        Tools.createFile(portalWorkSpacePath + "status/full_migration.txt", true);
+        Tools.createFile(portalWorkSpacePath + "status/incremental_migration.txt", true);
+        Tools.createFile(portalWorkSpacePath + "status/reverse_migration.txt", true);
+        Tools.createFile(portalWorkSpacePath + "logs/debezium/", false);
+        Tools.createFile(portalWorkSpacePath + "logs/datacheck/", false);
+        initHashTable();
+        String debeziumConfigPath = portalWorkSpacePath + "config/debezium/";
+        Hashtable<String, String> table2 = new Hashtable<>();
+        table2.put("offset.storage.file.filename", portalWorkSpacePath + "tmp/connect.offsets");
+        table2.put("plugin.path", "share/java, " + PortalControl.toolsConfigParametersTable.get(Debezium.Connector.PATH));
+        Tools.changePropertiesParameters(table2, debeziumConfigPath + "connect-avro-standalone.properties");
+        RuntimeExecTools.copyFile(debeziumConfigPath + "connect-avro-standalone.properties", debeziumConfigPath + "connect-avro-standalone-source.properties");
+        RuntimeExecTools.copyFile(debeziumConfigPath + "connect-avro-standalone.properties", debeziumConfigPath + "connect-avro-standalone-sink.properties");
+        RuntimeExecTools.copyFile(debeziumConfigPath + "connect-avro-standalone.properties", debeziumConfigPath + "connect-avro-standalone-reverse-source.properties");
+        RuntimeExecTools.copyFile(debeziumConfigPath + "connect-avro-standalone.properties", debeziumConfigPath + "connect-avro-standalone-reverse-sink.properties");
+        Tools.changeFile("/tmp/datacheck/logs", portalWorkSpacePath + "/logs/datacheck", portalWorkSpacePath + "config/datacheck/log4j2.xml");
+        Tools.changeFile("/tmp/datacheck/logs", portalWorkSpacePath + "/logs/datacheck", portalWorkSpacePath + "config/datacheck/log4j2source.xml");
+        Tools.changeFile("/tmp/datacheck/logs", portalWorkSpacePath + "/logs/datacheck", portalWorkSpacePath + "config/datacheck/log4j2sink.xml");
+        Tools.changeCommandLineParameters();
         return flag;
     }
 
@@ -380,34 +380,34 @@ public final class Plan {
     /**
      * Clean.
      */
-    public static void clean(){
+    public static void clean() {
         CheckTaskMysqlFullMigration checkTaskMysqlFullMigration = new CheckTaskMysqlFullMigration();
         checkTaskMysqlFullMigration.cleanData(workspaceId);
     }
 
     public static void stopAllTasks() {
-        try{
-        Task task = new Task();
-        task.stopDataCheck();
-        task.stopDataCheckSink();
-        Thread.sleep(1000);
-        task.stopDataCheckSource();
-        Thread.sleep(1000);
-        task.stopReverseKafkaConnectSink();
-        Thread.sleep(1000);
-        task.stopReverseKafkaConnectSource();
-        Thread.sleep(1000);
-        task.stopKafkaConnectSink();
-        Thread.sleep(1000);
-        task.stopKafkaConnectSource();
-        Thread.sleep(1000);
-        task.stopKafkaSchema(toolsConfigParametersTable.get(Debezium.Confluent.PATH));
-        Thread.sleep(1000);
-        task.stopKafka(toolsConfigParametersTable.get(Debezium.Kafka.PATH));
-        Thread.sleep(1000);
-        task.stopZookeeper(toolsConfigParametersTable.get(Debezium.Kafka.PATH));
-        Thread.sleep(1000);
-        }catch (InterruptedException e) {
+        try {
+            Task task = new Task();
+            task.stopDataCheck();
+            task.stopDataCheckSink();
+            Thread.sleep(1000);
+            task.stopDataCheckSource();
+            Thread.sleep(1000);
+            task.stopReverseKafkaConnectSink();
+            Thread.sleep(1000);
+            task.stopReverseKafkaConnectSource();
+            Thread.sleep(1000);
+            task.stopKafkaConnectSink();
+            Thread.sleep(1000);
+            task.stopKafkaConnectSource();
+            Thread.sleep(1000);
+            task.stopKafkaSchema(toolsConfigParametersTable.get(Debezium.Confluent.PATH));
+            Thread.sleep(1000);
+            task.stopKafka(toolsConfigParametersTable.get(Debezium.Kafka.PATH));
+            Thread.sleep(1000);
+            task.stopZookeeper(toolsConfigParametersTable.get(Debezium.Kafka.PATH));
+            Thread.sleep(1000);
+        } catch (InterruptedException e) {
             LOGGER.error("Interrupted exception occurred in stopping the plan.");
         }
     }

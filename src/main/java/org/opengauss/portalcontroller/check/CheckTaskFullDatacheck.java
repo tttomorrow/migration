@@ -9,14 +9,27 @@ import java.util.ArrayList;
 import java.util.Hashtable;
 import java.util.List;
 
+/**
+ * The type Check task full datacheck.
+ */
 public class CheckTaskFullDatacheck implements CheckTask {
     private static final Logger LOGGER = LoggerFactory.getLogger(CheckTaskFullDatacheck.class);
     private String workspaceId = "";
 
+    /**
+     * Gets workspace id.
+     *
+     * @return the workspace id
+     */
     public String getWorkspaceId() {
         return workspaceId;
     }
 
+    /**
+     * Sets workspace id.
+     *
+     * @param workspaceId the workspace id
+     */
     public void setWorkspaceId(String workspaceId) {
         this.workspaceId = workspaceId;
     }
@@ -72,6 +85,11 @@ public class CheckTaskFullDatacheck implements CheckTask {
     }
 
 
+    /**
+     * Check necessary process exist boolean.
+     *
+     * @return the boolean
+     */
     public boolean checkNecessaryProcessExist() {
         boolean flag = false;
         boolean flag1 = Tools.getCommandPid(Task.getTaskProcessMap().get(Method.Run.ZOOKEEPER)) != -1;

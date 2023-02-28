@@ -74,9 +74,9 @@ public class CheckTaskReverseDatacheck implements CheckTask {
     @Override
     public void prepareWork(String workspaceId) {
         runningTaskList.add(Command.Start.Mysql.FULL_CHECK);
-        Task.startTaskMethod(Method.Run.ZOOKEEPER,8000);
-        Task.startTaskMethod(Method.Run.KAFKA,8000);
-        Task.startTaskMethod(Method.Run.REGISTRY,8000);
+        Task.startTaskMethod(Method.Run.ZOOKEEPER, 8000);
+        Task.startTaskMethod(Method.Run.KAFKA, 8000);
+        Task.startTaskMethod(Method.Run.REGISTRY, 8000);
         changeParameters(workspaceId);
         if (!checkNecessaryProcessExist()) {
             LOGGER.error("There is no kafka running.Reverse datacheck failed.");
@@ -85,13 +85,12 @@ public class CheckTaskReverseDatacheck implements CheckTask {
 
     @Override
     public void start(String workspaceId) {
-        Task.startTaskMethod(Method.Run.CHECK_SOURCE,5000);
-        Task.startTaskMethod(Method.Run.CHECK_SINK,5000);
-        Task.startTaskMethod(Method.Run.CHECK,5000);
+        Task.startTaskMethod(Method.Run.CHECK_SOURCE, 5000);
+        Task.startTaskMethod(Method.Run.CHECK_SINK, 5000);
+        Task.startTaskMethod(Method.Run.CHECK, 5000);
         LOGGER.info("Mysql incremental datacheck has started.");
         checkEnd();
     }
-
 
     public boolean checkNecessaryProcessExist() {
         boolean flag = false;
