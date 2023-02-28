@@ -31,6 +31,7 @@ import org.opengauss.portalcontroller.constant.Regex;
 import org.opengauss.portalcontroller.constant.Status;
 import org.opengauss.portalcontroller.status.CheckRules;
 import org.opengauss.portalcontroller.status.FullMigrationStatus;
+import org.opengauss.portalcontroller.status.IncrementalMigrationStatus;
 import org.opengauss.portalcontroller.status.ObjectStatus;
 import org.opengauss.portalcontroller.status.TableStatus;
 import org.slf4j.Logger;
@@ -294,7 +295,7 @@ public class Tools {
                 if (s.contains(command)) {
                     String[] strs = s.split("\\s+");
                     int pid = Integer.parseInt(strs[1]);
-                    RuntimeExecTools.executeOrder("kill -9 " + pid, 20);
+                    RuntimeExecTools.executeOrder("kill -9 " + pid, 20, PortalControl.portalWorkSpacePath + "logs/error.log");
                 }
             }
             br.close();
@@ -746,7 +747,7 @@ public class Tools {
         boolean flag = false;
         File file = new File(PortalControl.portalWorkSpacePath + "config/input");
         try {
-            RuntimeExecTools.executeOrder("mkfifo " + PortalControl.portalWorkSpacePath + "config/input", 2000);
+            RuntimeExecTools.executeOrder("mkfifo " + PortalControl.portalWorkSpacePath + "config/input", 2000, PortalControl.portalWorkSpacePath + "logs/error.log");
             BufferedWriter bufferedWriter = new BufferedWriter(new FileWriter(file));
             bufferedWriter.write(command);
             bufferedWriter.flush();
@@ -1103,6 +1104,9 @@ public class Tools {
         }
     }
 
+    /**
+     * Write check rules.
+     */
     public static void writeCheckRules() {
         StringBuilder rules = new StringBuilder();
         String rulesTableAmount = getOrDefault(Check.Rules.Table.AMOUNT, String.valueOf(Default.Check.TABLE_AMOUNT));
@@ -1146,6 +1150,9 @@ public class Tools {
         }
     }
 
+    /**
+     * Write chameleon override type.
+     */
     public static void writeChameleonOverrideType() {
         StringBuilder rules = new StringBuilder();
         rules.append("chameleon-parameter:" + System.lineSeparator());
@@ -1173,6 +1180,11 @@ public class Tools {
 
     }
 
+    /**
+     * Gets chameleon table status.
+     *
+     * @return the chameleon table status
+     */
     public static ArrayList<TableStatus> getChameleonTableStatus() {
         ArrayList<TableStatus> tableStatusList = new ArrayList<>();
         String chameleonVenvPath = PortalControl.toolsConfigParametersTable.get(Chameleon.VENV_PATH);
@@ -1211,6 +1223,13 @@ public class Tools {
         return tableStatusList;
     }
 
+    /**
+     * Gets chameleon object status.
+     *
+     * @param name  the name
+     * @param order the order
+     * @return the chameleon object status
+     */
     public static ArrayList<ObjectStatus> getChameleonObjectStatus(String name, String order) {
         ArrayList<ObjectStatus> objectStatusList = new ArrayList<>();
         try {
@@ -1246,6 +1265,9 @@ public class Tools {
         return objectStatusList;
     }
 
+    /**
+     * Change full status.
+     */
     public static void changeFullStatus() {
         ArrayList<TableStatus> tableStatusArrayList = Tools.getChameleonTableStatus();
         ArrayList<ObjectStatus> viewStatusArrayList = Tools.getChameleonObjectStatus("view", "start_view_replica");
@@ -1254,9 +1276,15 @@ public class Tools {
         ArrayList<ObjectStatus> procedureStatusArrayList = Tools.getChameleonObjectStatus("procedure", "start_proc_replica");
         FullMigrationStatus fullMigrationStatus = new FullMigrationStatus(tableStatusArrayList, viewStatusArrayList, functionStatusArrayList, triggerStatusArrayList, procedureStatusArrayList);
         String fullMigrationStatusString = JSON.toJSONString(fullMigrationStatus);
-        Tools.writeFile(fullMigrationStatusString, new File(PortalControl.portalWorkSpacePath + "status/full_migration.txt"));
+        Tools.writeFile(fullMigrationStatusString, new File(PortalControl.portalWorkSpacePath + "status/full_migration.txt"), false);
     }
 
+    /**
+     * Read file string.
+     *
+     * @param file the file
+     * @return the string
+     */
     public static String readFile(File file) {
         String str = "";
         try {
@@ -1273,14 +1301,101 @@ public class Tools {
 
     }
 
-    public static void writeFile(String str, File file) {
+    /**
+     * Write file.
+     *
+     * @param str    the str
+     * @param file   the file
+     * @param append the append
+     */
+    public static void writeFile(String str, File file, boolean append) {
         try {
-            BufferedWriter bufferedWriter = new BufferedWriter(new FileWriter(file));
+            BufferedWriter bufferedWriter = new BufferedWriter(new FileWriter(file, append));
             bufferedWriter.write(str);
             bufferedWriter.flush();
             bufferedWriter.close();
         } catch (IOException e) {
             LOGGER.info("IO exception occurred in read file " + file.getAbsolutePath());
         }
+    }
+
+    /**
+     * Stop portal.
+     */
+    public static void stopPortal() {
+        PortalControl.threadCheckProcess.exit = true;
+        PortalControl.threadGetOrder.exit = true;
+        PortalControl.threadStatusController.exit = true;
+    }
+
+    /**
+     * Joint chameleon orders string.
+     *
+     * @param chameleonParameterTable the chameleon parameter table
+     * @param order                   the order
+     * @return the string
+     */
+    public static String jointChameleonOrders(Hashtable<String, String> chameleonParameterTable, String order) {
+        String result = "";
+        String chameleonVenvPath = PortalControl.toolsConfigParametersTable.get(Chameleon.VENV_PATH);
+        StringBuilder chameleonOrder = new StringBuilder(chameleonVenvPath + "venv/bin/chameleon " + order + " ");
+        for (String key : chameleonParameterTable.keySet()) {
+            chameleonOrder.append(key).append(" ").append(chameleonParameterTable.get(key)).append(" ");
+        }
+        chameleonOrder.append("--progress");
+        result = chameleonOrder.toString();
+        return result;
+    }
+
+    /**
+     * Change incremental status int.
+     *
+     * @param sourceMigrationStatusPath      the source migration status path
+     * @param sinkMigrationStatusPath        the sink migration status path
+     * @param incrementalMigrationStatusPath the incremental migration status path
+     * @return the int
+     */
+    public static int changeIncrementalStatus(String sourceMigrationStatusPath, String sinkMigrationStatusPath, String incrementalMigrationStatusPath) {
+        int time = 0;
+        String path = "";
+        try {
+            String sourceStr = "";
+            sourceStr = Tools.readFile(new File(sourceMigrationStatusPath));
+            JSONObject sourceObject = JSONObject.parseObject(sourceStr);
+            int createCount = sourceObject.getInteger("createCount");
+            int sourceSpeed = sourceObject.getInteger("speed");
+            long sourceFirstTimestamp = sourceObject.getLong("timestamp");
+            String sinkStr = "";
+            sinkStr = Tools.readFile(new File(sinkMigrationStatusPath));
+            JSONObject sinkObject = JSONObject.parseObject(sinkStr);
+            int replayedCount = sinkObject.getInteger("replayedCount");
+            int sinkSpeed = sinkObject.getInteger("speed");
+            long sinkTimestamp = sinkObject.getLong("timestamp");
+            if (sinkTimestamp > sourceFirstTimestamp) {
+                String timeStr = String.valueOf(sourceFirstTimestamp + 1000 - sinkTimestamp);
+                time = Integer.parseInt(timeStr);
+                sourceStr = Tools.readFile(new File(sourceMigrationStatusPath));
+                JSONObject sourceSecondObject = JSONObject.parseObject(sourceStr);
+                createCount = sourceSecondObject.getInteger("createCount");
+                sourceSpeed = sourceSecondObject.getInteger("speed");
+            }
+            int rest = createCount - replayedCount;
+            Thread.sleep(time);
+            String incrementalMigrationString = "";
+            int status = 1;
+            if (PortalControl.status == Status.ERROR) {
+                status = 2;
+                String msg = "error";
+                IncrementalMigrationStatus incrementalMigrationStatus = new IncrementalMigrationStatus(status, createCount, sourceSpeed, sinkSpeed, rest, msg);
+                incrementalMigrationString = JSON.toJSONString(incrementalMigrationStatus);
+            } else {
+                IncrementalMigrationStatus incrementalMigrationStatus = new IncrementalMigrationStatus(status, createCount, sourceSpeed, sinkSpeed, rest);
+                incrementalMigrationString = JSON.toJSONString(incrementalMigrationStatus);
+            }
+            Tools.writeFile(incrementalMigrationString, new File(incrementalMigrationStatusPath), false);
+        } catch (InterruptedException e) {
+            LOGGER.error("Interrupted Exception");
+        }
+        return time;
     }
 }

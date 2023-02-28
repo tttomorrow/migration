@@ -31,27 +31,27 @@ public class CheckTaskIncrementalDatacheck implements CheckTask {
      * Install datacheck package.
      */
     @Override
-    public void installAllPackages(){
+    public void installAllPackages() {
         Hashtable<String, String> hashtable = PortalControl.toolsConfigParametersTable;
-        Tools.installPackage(PortalControl.toolsConfigParametersTable.get(Debezium.Kafka.PATH) + "libs/kafka-streams-examples-3.2.3.jar",Debezium.PKG_PATH,Debezium.Kafka.PKG_NAME,hashtable.get(Debezium.PATH));
+        Tools.installPackage(PortalControl.toolsConfigParametersTable.get(Debezium.Kafka.PATH) + "libs/kafka-streams-examples-3.2.3.jar", Debezium.PKG_PATH, Debezium.Kafka.PKG_NAME, hashtable.get(Debezium.PATH));
         Tools.installPackage(PortalControl.toolsConfigParametersTable.get(Debezium.Confluent.PATH) + "etc/kafka/consumer.properties", Debezium.PKG_PATH, Debezium.Confluent.PKG_NAME, hashtable.get(Debezium.PATH));
-        Tools.installPackage(PortalControl.toolsConfigParametersTable.get(Check.PATH) + "config/log4j2.xml",Check.PKG_PATH,Check.PKG_NAME,hashtable.get(Check.INSTALL_PATH));
+        Tools.installPackage(PortalControl.toolsConfigParametersTable.get(Check.PATH) + "config/log4j2.xml", Check.PKG_PATH, Check.PKG_NAME, hashtable.get(Check.INSTALL_PATH));
     }
 
     /**
      * Copy datacheck config files.
      */
     @Override
-    public void copyConfigFiles(String workspaceId){
+    public void copyConfigFiles(String workspaceId) {
 
     }
 
     @Override
     public void prepareWork(String workspaceId) {
         runningTaskList.add(Command.Start.Mysql.FULL_CHECK);
-        Task.startTaskMethod(Method.Run.ZOOKEEPER,8000);
-        Task.startTaskMethod(Method.Run.KAFKA,8000);
-        Task.startTaskMethod(Method.Run.REGISTRY,8000);
+        Task.startTaskMethod(Method.Run.ZOOKEEPER, 8000);
+        Task.startTaskMethod(Method.Run.KAFKA, 8000);
+        Task.startTaskMethod(Method.Run.REGISTRY, 8000);
         changeParameters(workspaceId);
     }
 
@@ -59,26 +59,25 @@ public class CheckTaskIncrementalDatacheck implements CheckTask {
      * Change datacheck parameters.
      */
     @Override
-    public void changeParameters(String workspaceId){
+    public void changeParameters(String workspaceId) {
         Hashtable<String, String> hashtable = PortalControl.toolsConfigParametersTable;
-        String confluentPath = hashtable.get(Debezium.Confluent.PATH);
         String kafkaPath = hashtable.get(Debezium.Kafka.PATH);
-        Tools.changeSinglePropertiesParameter("dataDir",PortalControl.portalControlPath + "tmp/zookeeper", kafkaPath + "config/zookeeper.properties");
-        Tools.changeSinglePropertiesParameter("log.dirs",PortalControl.portalControlPath + "tmp/kafka-logs", kafkaPath + "config/server.properties");
-        Tools.changeSinglePropertiesParameter("offset.storage.file.filename",PortalControl.portalControlPath + "tmp/connect.offsets", PortalControl.portalWorkSpacePath + "config/debezium/connect-avro-standalone.properties");
+        Tools.changeSinglePropertiesParameter("dataDir", PortalControl.portalControlPath + "tmp/zookeeper", kafkaPath + "config/zookeeper.properties");
+        Tools.changeSinglePropertiesParameter("log.dirs", PortalControl.portalControlPath + "tmp/kafka-logs", kafkaPath + "config/server.properties");
+        Tools.changeSinglePropertiesParameter("offset.storage.file.filename", PortalControl.portalControlPath + "tmp/connect.offsets", PortalControl.portalWorkSpacePath + "config/debezium/connect-avro-standalone.properties");
         Tools.changeMigrationDatacheckParameters(PortalControl.toolsMigrationParametersTable);
         Tools.changeSingleYmlParameter("spring.extract.debezium-enable", true, PortalControl.portalWorkSpacePath + "config/datacheck/application-source.yml");
-        String sourceTopic = Tools.getSinglePropertiesParameter("transforms.route.replacement",PortalControl.portalWorkSpacePath + "config/debezium/mysql-source.properties");
-        Tools.changeSingleYmlParameter("spring.extract.debezium-topic",sourceTopic,PortalControl.portalWorkSpacePath +"config/datacheck/application-source.yml");
-        String sinkTopic = Tools.getSinglePropertiesParameter("transforms.route.replacement",PortalControl.portalWorkSpacePath + "config/debezium/mysql-sink.properties");
-        Tools.changeSingleYmlParameter("spring.extract.debezium-topic",sinkTopic,PortalControl.portalWorkSpacePath +"config/datacheck/application-sink.yml");
+        String sourceTopic = Tools.getSinglePropertiesParameter("transforms.route.replacement", PortalControl.portalWorkSpacePath + "config/debezium/mysql-source.properties");
+        Tools.changeSingleYmlParameter("spring.extract.debezium-topic", sourceTopic, PortalControl.portalWorkSpacePath + "config/datacheck/application-source.yml");
+        String sinkTopic = Tools.getSinglePropertiesParameter("transforms.route.replacement", PortalControl.portalWorkSpacePath + "config/debezium/mysql-sink.properties");
+        Tools.changeSingleYmlParameter("spring.extract.debezium-topic", sinkTopic, PortalControl.portalWorkSpacePath + "config/datacheck/application-sink.yml");
     }
 
     @Override
-    public void start(String workspaceId){
-        Task.startTaskMethod(Method.Run.CHECK_SOURCE,5000);
-        Task.startTaskMethod(Method.Run.CHECK_SINK,5000);
-        Task.startTaskMethod(Method.Run.CHECK,5000);
+    public void start(String workspaceId) {
+        Task.startTaskMethod(Method.Run.CHECK_SOURCE, 5000);
+        Task.startTaskMethod(Method.Run.CHECK_SINK, 5000);
+        Task.startTaskMethod(Method.Run.CHECK, 5000);
         LOGGER.info("Mysql incremental datacheck has started.");
         checkEnd();
     }
@@ -94,17 +93,17 @@ public class CheckTaskIncrementalDatacheck implements CheckTask {
         return flag;
     }
 
-    public void checkEnd(){
-        while (!Plan.stopPlan && !Plan.stopIncrementalMigration){
-                try {
-                    LOGGER.info("Incremental migration is running...");
-                    LOGGER.info("Incremental migration datacheck is running...");
-                    Thread.sleep(1000);
-                } catch (InterruptedException e) {
-                    LOGGER.error("Interrupted exception occurred in running incremental migraiton datacheck.");
-                }
+    public void checkEnd() {
+        while (!Plan.stopPlan && !Plan.stopIncrementalMigration) {
+            try {
+                LOGGER.info("Incremental migration is running...");
+                LOGGER.info("Incremental migration datacheck is running...");
+                Thread.sleep(1000);
+            } catch (InterruptedException e) {
+                LOGGER.error("Interrupted exception occurred in running incremental migraiton datacheck.");
+            }
         }
-        if(Plan.stopIncrementalMigration){
+        if (Plan.stopIncrementalMigration) {
             PortalControl.status = Status.INCREMENTAL_MIGRATION_FINISHED;
             Task.stopTaskMethod(Method.Run.CHECK);
             Task.stopTaskMethod(Method.Run.CHECK_SINK);

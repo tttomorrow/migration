@@ -112,12 +112,7 @@ public class PortalControl {
     /**
      * Thread to check process.
      */
-    public static ThreadCheckProcess threadCheckProcess = null;
-
-    /**
-     * Thread to execute plan.
-     */
-    public static ThreadExecPlan threadExecPlan = null;
+    public static ThreadCheckProcess threadCheckProcess = new ThreadCheckProcess();
 
     /**
      * Hashmap to save the parameters in commandline and their values.
@@ -149,12 +144,19 @@ public class PortalControl {
      */
     public static boolean fullDatacheckFinished = false;
 
+    /**
+     * The constant startPort.
+     */
     public static int startPort = 10000;
 
     /**
      * The constant threadGetOrder.
      */
     public static ThreadGetOrder threadGetOrder = new ThreadGetOrder();
+    /**
+     * The constant threadStatusController.
+     */
+    public static ThreadStatusController threadStatusController = new ThreadStatusController();
 
 
     /**
@@ -163,8 +165,8 @@ public class PortalControl {
      * @param args args
      */
     public static void main(String[] args) {
-        File file = new File("/data1/lt/test/portal/workspace");
-        if(file.exists() && file.isDirectory()){
+        File file = new File(PortalControl.portalControlPath + "workspace");
+        if (file.exists() && file.isDirectory()) {
             int workspaces = Objects.requireNonNull(file.listFiles()).length;
             startPort += workspaces * 50;
         }
@@ -187,10 +189,8 @@ public class PortalControl {
         Plan.createWorkspace(workspaceId);
         checkPath();
         Task.initTaskProcessMap();
-        threadCheckProcess = new ThreadCheckProcess();
         threadCheckProcess.setName("threadCheckProcess");
         threadCheckProcess.start();
-        ThreadStatusController threadStatusController = new ThreadStatusController();
         threadStatusController.setWorkspaceId(workspaceId);
         threadStatusController.start();
         noinput = PortalControl.commandLineParameterStringMap.get(Command.Parameters.SKIP).equals("true");
@@ -349,8 +349,8 @@ public class PortalControl {
             }
         }
         pps.clear();
-        Tools.changePropertiesParameters(PortalControl.toolsConfigParametersTable,PortalControl.portalWorkSpacePath + "config/toolspath.properties");
-        Tools.changePropertiesParameters(PortalControl.toolsMigrationParametersTable,PortalControl.portalWorkSpacePath + "config/migrationConfig.properties");
+        Tools.changePropertiesParameters(PortalControl.toolsConfigParametersTable, PortalControl.portalWorkSpacePath + "config/toolspath.properties");
+        Tools.changePropertiesParameters(PortalControl.toolsMigrationParametersTable, PortalControl.portalWorkSpacePath + "config/migrationConfig.properties");
     }
 
     /**

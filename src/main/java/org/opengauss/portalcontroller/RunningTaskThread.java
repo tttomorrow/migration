@@ -55,7 +55,7 @@ public class RunningTaskThread {
      * @param processName the process name
      * @param pid         the pid
      */
-    public RunningTaskThread(String methodName, String processName,int pid) {
+    public RunningTaskThread(String methodName, String processName, int pid) {
         this.methodName = methodName;
         this.processName = processName;
         this.pid = pid;

@@ -12,6 +12,8 @@ spring:
     debezium-enable: false # no need config,but not delete
     debezium-topic:  # no need config,but not delete
     debezium-groupId: # no need config,but not delete
+    debezium-serializer: AvroSerializer # StringSerializer or AvroSerializer
+    debezium-avro-registry: http://localhost:8081 # avro schema registry
     debezium-time-period: 1 # no need config,but not delete
     debezium-num-period: 1000 # no need config,but not delete
   kafka:
@@ -23,3 +25,8 @@ spring:
         url: jdbc:opengauss://127.0.0.1:5432/postgres?useSSL=false&useUnicode=true&characterEncoding=utf-8&serverTimezone=UTC
         username:
         password: 'xxxx'  # The password text may contain special characters, which need to be enclosed in quotation marks
+        # Configure initialization connection pool size, minimum number of connections, and maximum number of connections
+        # Users can make appropriate adjustments according to the number of current database tables
+        initialSize: 5 # initialization connection pool size
+        minIdle: 10 # minimum number of connections
+        maxActive: 20 # maximum number of connections
