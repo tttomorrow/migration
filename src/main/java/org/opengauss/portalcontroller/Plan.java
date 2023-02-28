@@ -299,7 +299,7 @@ public final class Plan {
                 bw.write("method name | process name | pid " + System.lineSeparator());
                 for (RunningTaskThread thread : runningTaskThreadsList) {
                     int pid = Tools.getCommandPid(thread.getProcessName());
-                    if ((pid != thread.getPid() || pid == -1) && (!PortalControl.commandLineParameterStringMap.get("action").equals("stop"))) {
+                    if ((pid == -1) && (!PortalControl.commandLineParameterStringMap.get("action").equals("stop"))) {
                         if (thread.getMethodName().contains("Check") && !PortalControl.fullDatacheckFinished) {
                             cleanFullDataCheck = true;
                         } else {
@@ -390,17 +390,15 @@ public final class Plan {
             Task task = new Task();
             task.stopDataCheck();
             task.stopDataCheckSink();
-            Thread.sleep(1000);
             task.stopDataCheckSource();
-            Thread.sleep(1000);
             task.stopReverseKafkaConnectSink();
-            Thread.sleep(1000);
+            Thread.sleep(100);
             task.stopReverseKafkaConnectSource();
-            Thread.sleep(1000);
+            Thread.sleep(100);
             task.stopKafkaConnectSink();
-            Thread.sleep(1000);
+            Thread.sleep(100);
             task.stopKafkaConnectSource();
-            Thread.sleep(1000);
+            Thread.sleep(100);
             task.stopKafkaSchema(toolsConfigParametersTable.get(Debezium.Confluent.PATH));
             Thread.sleep(1000);
             task.stopKafka(toolsConfigParametersTable.get(Debezium.Kafka.PATH));

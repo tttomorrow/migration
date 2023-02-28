@@ -212,10 +212,9 @@ public class Task {
      * @param chameleonVenvPath the chameleon venv path
      * @param order             the order
      * @param parametersTable   the parameters table
-     * @param workspaceId       the workspace id
      * @param isInstantCommand  the is instant command
      */
-    public void useChameleonReplicaOrder(String chameleonVenvPath, String order, Hashtable<String, String> parametersTable, String workspaceId, boolean isInstantCommand) {
+    public void useChameleonReplicaOrder(String chameleonVenvPath, String order, Hashtable<String, String> parametersTable, boolean isInstantCommand) {
         startChameleonReplicaOrder(chameleonVenvPath, order, parametersTable);
         checkChameleonReplicaOrder(order, parametersTable, isInstantCommand);
     }

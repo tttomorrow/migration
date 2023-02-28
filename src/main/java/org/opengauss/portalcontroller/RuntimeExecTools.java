@@ -89,19 +89,6 @@ public class RuntimeExecTools {
             } else {
                 process.waitFor(time, TimeUnit.MILLISECONDS);
                 errorStr = getInputStreamString(process.getErrorStream());
-//                BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(process.getInputStream()));
-//                String str = "";
-//                String temp = "";
-//                BufferedWriter bufferedOutputWriter = new BufferedWriter(new FileWriter(outputFilePath,true));
-//                while((temp = bufferedReader.readLine()) != null){
-//                    str += temp + System.lineSeparator();
-//                    if(!temp.equals("")){
-//                        bufferedOutputWriter.write(temp + System.lineSeparator());
-//                        bufferedOutputWriter.flush();
-//                    }
-//                }
-//                bufferedReader.close();
-//                bufferedOutputWriter.close();
                 if (!errorStr.equals("")) {
                     LOGGER.error(errorStr);
                 }

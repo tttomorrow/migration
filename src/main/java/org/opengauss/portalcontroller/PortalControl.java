@@ -165,7 +165,7 @@ public class PortalControl {
      * @param args args
      */
     public static void main(String[] args) {
-        File file = new File("/data1/lt/test/portal/workspace");
+        File file = new File(PortalControl.portalControlPath + "workspace");
         if (file.exists() && file.isDirectory()) {
             int workspaces = Objects.requireNonNull(file.listFiles()).length;
             startPort += workspaces * 50;

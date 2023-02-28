@@ -1,28 +1,32 @@
 server:
   port: 9002
 logging:
-  config: null
+  config: # absolute_path/log4j2sink.xml
 spring:
   check:
     server-uri: http://127.0.0.1:9000
   extract:
-    schema: testtest
+    schema: jack
     databaseType: OG
-    query-dop: 8
-    debezium-enable: false
-    debezium-topic: null
-    debezium-groupId: null
-    debezium-time-period: 1
-    debezium-num-period: 1000
+    query-dop: 8 # openGauss database Parallel Query session config
+    debezium-enable: false # no need config,but not delete
+    debezium-topic:  # no need config,but not delete
+    debezium-groupId: # no need config,but not delete
+    debezium-serializer: AvroSerializer # StringSerializer or AvroSerializer
+    debezium-avro-registry: http://localhost:8081 # avro schema registry
+    debezium-time-period: 1 # no need config,but not delete
+    debezium-num-period: 1000 # no need config,but not delete
   kafka:
     bootstrap-servers: localhost:9092
   datasource:
     druid:
       dataSourceOne:
         driver-class-name: org.opengauss.Driver
-        url: jdbc:opengauss://192.168.0.219:40300/test?useSSL=false&useUnicode=true&characterEncoding=utf-8&serverTimezone=UTC
-        username: test
-        password: Sample@123
-        initialSize: 5
-        minIdle: 10
-        maxActive: 20
+        url: jdbc:opengauss://127.0.0.1:5432/postgres?useSSL=false&useUnicode=true&characterEncoding=utf-8&serverTimezone=UTC
+        username:
+        password: 'xxxx'  # The password text may contain special characters, which need to be enclosed in quotation marks
+        # Configure initialization connection pool size, minimum number of connections, and maximum number of connections
+        # Users can make appropriate adjustments according to the number of current database tables
+        initialSize: 5 # initialization connection pool size
+        minIdle: 10 # minimum number of connections
+        maxActive: 20 # maximum number of connections
