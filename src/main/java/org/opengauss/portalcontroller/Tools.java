@@ -18,7 +18,6 @@ import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import org.opengauss.jdbc.PgConnection;
-import org.opengauss.portalcontroller.check.CheckTask;
 import org.opengauss.portalcontroller.constant.Chameleon;
 import org.opengauss.portalcontroller.constant.Check;
 import org.opengauss.portalcontroller.constant.Command;
@@ -29,16 +28,16 @@ import org.opengauss.portalcontroller.constant.Offset;
 import org.opengauss.portalcontroller.constant.Opengauss;
 import org.opengauss.portalcontroller.constant.Regex;
 import org.opengauss.portalcontroller.constant.Status;
-import org.opengauss.portalcontroller.status.CheckRules;
 import org.opengauss.portalcontroller.status.FullMigrationStatus;
 import org.opengauss.portalcontroller.status.IncrementalMigrationStatus;
 import org.opengauss.portalcontroller.status.ObjectStatus;
+import org.opengauss.portalcontroller.status.PortalStatusWriter;
 import org.opengauss.portalcontroller.status.TableStatus;
+import org.opengauss.portalcontroller.status.ThreadStatusController;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.yaml.snakeyaml.DumperOptions;
 import org.yaml.snakeyaml.Yaml;
-
 
 import java.io.BufferedInputStream;
 import java.io.BufferedReader;
@@ -475,7 +474,7 @@ public class Tools {
         String workspaceId = PortalControl.commandLineParameterStringMap.get(Command.Parameters.ID);
         changeFullMigrationParameters(migrationparametersTable, workspaceId);
         changeMigrationDatacheckParameters(migrationparametersTable);
-        changeIncrementalMigrationParameters(migrationparametersTable, workspaceId);
+        changeIncrementalMigrationParameters(migrationparametersTable);
         changeReverseMigrationParameters(migrationparametersTable);
     }
 
@@ -570,9 +569,8 @@ public class Tools {
      * Change incremental migration parameters.
      *
      * @param migrationparametersTable migrationparametersTable
-     * @param workspaceId              the workspace id
      */
-    public static void changeIncrementalMigrationParameters(Hashtable<String, String> migrationparametersTable, String workspaceId) {
+    public static void changeIncrementalMigrationParameters(Hashtable<String, String> migrationparametersTable) {
         String mysqlDatabaseName = migrationparametersTable.get(Mysql.DATABASE_NAME);
         String mysqlDatabaseHost = migrationparametersTable.get(Mysql.DATABASE_HOST);
         String mysqlDatabasePort = migrationparametersTable.get(Mysql.DATABASE_PORT);
@@ -649,10 +647,8 @@ public class Tools {
 
     /**
      * Find t_binlog_name,i_binlog_position,t_gtid_set in opengauss and set parameters in increment tool's config files.
-     *
-     * @param workspaceId the workspace id
      */
-    public static void findOffset(String workspaceId) {
+    public static void findOffset() {
         String offsetPath = PortalControl.portalWorkSpacePath + "config/debezium/mysql-source.properties";
         Properties pps = new Properties();
         try {
@@ -723,7 +719,7 @@ public class Tools {
             String str = "";
             while ((str = br.readLine()) != null) {
                 if (!PortalControl.latestCommand.equals(str.trim())) {
-                    LOGGER.warn(str);
+                    LOGGER.info(str);
                     PortalControl.latestCommand = str.trim();
                     changeMigrationStatus(str.trim());
                     break;
@@ -816,7 +812,7 @@ public class Tools {
             }
         } else {
             flag = false;
-            LOGGER.info("File " + path + " has existed.");
+            LOGGER.info("File " + path + " already exists.");
         }
         return flag;
     }
@@ -858,25 +854,47 @@ public class Tools {
     /**
      * Install package.
      *
-     * @param lastFilePath     the last file path
+     * @param filePathList     the file path list
      * @param pkgPathParameter PkgPath parameter.
      * @param pkgNameParameter PkgName parameter.
-     * @param pathParameter    Path parameter.
+     * @param installPath      Path parameter.
+     * @param pathParameter    the path parameter
+     * @return the boolean
      */
-    public static void installPackage(String lastFilePath, String pkgPathParameter, String pkgNameParameter, String pathParameter) {
-        File file = new File(lastFilePath);
-        if (file.exists()) {
-            LOGGER.info("File " + lastFilePath + " has existed.");
-        } else {
+    public static boolean installPackage(ArrayList<String> filePathList, String pkgPathParameter, String pkgNameParameter, String installPath, String pathParameter) {
+        boolean flag = Tools.checkCriticalFileExists(filePathList);
+        if (!flag) {
             String packagePath = Tools.getPackagePath(pkgPathParameter, pkgNameParameter);
-            Tools.createFile(pathParameter, false);
-            RuntimeExecTools.unzipFile(packagePath, pathParameter);
-        }
-        if (file.exists()) {
-            LOGGER.info("Installation of " + pkgNameParameter + " is finished.");
+            Tools.createFile(installPath, false);
+            RuntimeExecTools.unzipFile(packagePath, installPath);
         } else {
-            LOGGER.error("Installation of " + pkgNameParameter + " is failed.");
+            String path = PortalControl.toolsConfigParametersTable.get(pathParameter);
+            LOGGER.info("File " + path + " already exists.If you want to install new package.Please remove " + path + ".");
         }
+        flag = Tools.checkCriticalFileExists(filePathList);
+        if (flag) {
+            LOGGER.info("Installation of " + pkgNameParameter + " is finished.");
+        }
+        return flag;
+    }
+
+    /**
+     * Check critical file exists boolean.
+     *
+     * @param filePathList the file path list
+     * @return the boolean
+     */
+    public static boolean checkCriticalFileExists(ArrayList<String> filePathList) {
+        boolean flag = true;
+        for (String path : filePathList) {
+            File file = new File(path);
+            if (!file.exists()) {
+                flag = false;
+                LOGGER.info("No such file " + path);
+                break;
+            }
+        }
+        return flag;
     }
 
     /**
@@ -1023,10 +1041,8 @@ public class Tools {
         checkSourceTable.put("spring.extract.debezium-time-period", Integer.parseInt(getOrDefault(Check.Source.TIME_PERIOD, Default.Check.Source.TIME_PERIOD)));
         checkSourceTable.put("spring.extract.debezium-num-period", Integer.parseInt(getOrDefault(Check.Source.NUM_PERIOD, Default.Check.Source.NUM_PERIOD)));
         Tools.changeYmlParameters(checkSourceTable, checkSourcePath);
-
         Tools.writeCheckRules();
         Tools.writeChameleonOverrideType();
-
     }
 
     /**
@@ -1056,18 +1072,18 @@ public class Tools {
      */
     public static void changeFile(String oldString, String newString, String path) {
         try {
-            String result = "";
+            StringBuilder result = new StringBuilder();
             String temp = "";
             BufferedReader bufferedReader = new BufferedReader(new FileReader(path));
             while ((temp = bufferedReader.readLine()) != null) {
                 if (temp.contains(oldString)) {
                     temp = temp.replaceFirst(oldString, newString);
                 }
-                result += temp + System.lineSeparator();
+                result.append(temp).append(System.lineSeparator());
             }
             bufferedReader.close();
             BufferedWriter bufferedWriter = new BufferedWriter(new FileWriter(path));
-            bufferedWriter.write(result);
+            bufferedWriter.write(result.toString());
             bufferedWriter.flush();
             bufferedWriter.close();
         } catch (IOException e) {
@@ -1083,7 +1099,7 @@ public class Tools {
      */
     public static void changeConnectXmlFile(String workspaceId, String path) {
         try {
-            String result = "";
+            StringBuilder result = new StringBuilder();
             String temp = "";
             BufferedReader bufferedReader = new BufferedReader(new FileReader(path));
             while ((temp = bufferedReader.readLine()) != null) {
@@ -1092,11 +1108,11 @@ public class Tools {
                     String connectLogName = temp.substring(start);
                     temp = temp.replace(connectLogName, "/connect_" + workspaceId + ".log");
                 }
-                result += temp + System.lineSeparator();
+                result.append(temp).append(System.lineSeparator());
             }
             bufferedReader.close();
             BufferedWriter bufferedWriter = new BufferedWriter(new FileWriter(path));
-            bufferedWriter.write(result);
+            bufferedWriter.write(result.toString());
             bufferedWriter.flush();
             bufferedWriter.close();
         } catch (IOException e) {
@@ -1113,20 +1129,20 @@ public class Tools {
         int tableAmount = Integer.parseInt(rulesTableAmount);
         if (Boolean.parseBoolean(getOrDefault(Check.Rules.ENABLE, Default.Check.RULES_ENABLE)) && tableAmount != 0) {
             rules.append(rules);
-            rules.append("table-parameter:" + System.lineSeparator());
+            rules.append("table-parameter:").append(System.lineSeparator());
             for (int i = 1; i <= tableAmount; i++) {
                 String rulesTableName = System.getProperty(Check.Rules.Table.NAME + i);
                 String rulesTableText = System.getProperty(Check.Rules.Table.TEXT + i);
-                rules.append("table-name" + i + ":" + rulesTableName + System.lineSeparator());
-                rules.append("table-text" + i + ":" + rulesTableText + System.lineSeparator());
+                rules.append("table-name").append(i).append(":").append(rulesTableName).append(System.lineSeparator());
+                rules.append("table-text").append(i).append(":").append(rulesTableText).append(System.lineSeparator());
             }
-            rules.append("row-parameter:" + System.lineSeparator());
+            rules.append("row-parameter:").append(System.lineSeparator());
             int rulesRowAmount = Integer.parseInt(getOrDefault(Check.Rules.Row.AMOUNT, String.valueOf(Default.Check.ROW_AMOUNT)));
             for (int i = 1; i <= rulesRowAmount; i++) {
                 String rulesRowName = System.getProperty(Check.Rules.Row.NAME + i);
                 String rulesRowText = System.getProperty(Check.Rules.Row.TEXT + i);
-                rules.append("row-name" + i + ":" + rulesRowName + System.lineSeparator());
-                rules.append("row-text" + i + ":" + rulesRowText + System.lineSeparator());
+                rules.append("row-name").append(i).append(":").append(rulesRowName).append(System.lineSeparator());
+                rules.append("row-text").append(i).append(":").append(rulesRowText).append(System.lineSeparator());
             }
             rules.append("column-parameter:" + System.lineSeparator());
             int rulesColumnAmount = Integer.parseInt(getOrDefault(Check.Rules.Row.AMOUNT, String.valueOf(Default.Check.COLUMN_AMOUNT)));
@@ -1155,17 +1171,16 @@ public class Tools {
      */
     public static void writeChameleonOverrideType() {
         StringBuilder rules = new StringBuilder();
-        rules.append("chameleon-parameter:" + System.lineSeparator());
-
+        rules.append("chameleon-parameter:").append(System.lineSeparator());
         int chameleonOverrideTypeAmount = Integer.parseInt(getOrDefault(Chameleon.Override.AMOUNT, String.valueOf(Default.Chameleon.Override.AMOUNT)));
         for (int i = 0; i <= chameleonOverrideTypeAmount; i++) {
-            rules.append("override" + i + ": " + System.lineSeparator());
+            rules.append("override").append(i).append(": ").append(System.lineSeparator());
             String overrideType = System.getProperty(Chameleon.Override.SOURCE_TYPE + i);
             String overrideTo = System.getProperty(Chameleon.Override.SINK_TYPE + i);
             String overrideTables = System.getProperty(Chameleon.Override.TABLES + i);
-            rules.append(overrideType + System.lineSeparator());
-            rules.append(overrideTo + System.lineSeparator());
-            rules.append(overrideTables + System.lineSeparator());
+            rules.append(overrideType).append(System.lineSeparator());
+            rules.append(overrideTo).append(System.lineSeparator());
+            rules.append(overrideTables).append(System.lineSeparator());
             rules.append(System.lineSeparator());
         }
         try {
@@ -1190,38 +1205,66 @@ public class Tools {
         String chameleonVenvPath = PortalControl.toolsConfigParametersTable.get(Chameleon.VENV_PATH);
         String path = chameleonVenvPath + "data_default_" + Plan.workspaceId + "_init_replica.json";
         String tableChameleonStatus = Tools.readFile(new File(path));
-        JSONObject root = JSONObject.parseObject(tableChameleonStatus);
-        JSONArray table = root.getJSONArray("table");
-        Iterator iterator = table.iterator();
-        int i = 0;
-        while (iterator.hasNext()) {
-            String tableName = table.getJSONObject(i).getString("name");
-            double percent = table.getJSONObject(i).getDouble("percent");
-            int status = table.getJSONObject(i).getInteger("status");
-            if (new File(PortalControl.portalWorkSpacePath + "check_result/result").exists()) {
-                File[] fileList = new File(PortalControl.portalWorkSpacePath + "check_result/result").listFiles();
-                for (File file1 : fileList) {
-                    String fileName = file1.getName();
-                    if (fileName.contains("_" + tableName + "_")) {
-                        String tableCheckStatus = Tools.readFile(file1);
-                        JSONObject tableObject = JSONObject.parseObject(tableCheckStatus);
-                        String tableName1 = tableObject.getString("table");
-                        String result1 = tableObject.getString("result");
-                        if (tableName1.equals(tableName) && status < Status.Object.FULL_MIGRATION_CHECK_FINISHED && result1.equals("success")) {
-                            status = Status.Object.FULL_MIGRATION_CHECK_FINISHED;
-                        } else if (tableName1.equals(tableName) && status < Status.Object.FULL_MIGRATION_CHECK_FINISHED && result1.equals("failed")) {
-                            status = Status.Object.ERROR;
-                        }
-                    }
-                }
+        if (!tableChameleonStatus.equals("")) {
+            JSONObject root = JSONObject.parseObject(tableChameleonStatus);
+            JSONArray table = root.getJSONArray("table");
+            Iterator<Object> iterator = table.iterator();
+            int index = 0;
+            while (iterator.hasNext()) {
+                TableStatus tableStatus = getEveryTableStatus(index, table);
+                tableStatusList.add(tableStatus);
+                index++;
+                iterator.next();
             }
-            TableStatus tableStatus = new TableStatus(tableName, status, percent);
-            tableStatusList.add(tableStatus);
-            i++;
-            iterator.next();
         }
         return tableStatusList;
     }
+
+    /**
+     * Gets every table status.
+     *
+     * @param index the index
+     * @param table the table
+     * @return the every table status
+     */
+    public static TableStatus getEveryTableStatus(int index, JSONArray table) {
+        String tableName = table.getJSONObject(index).getString("name");
+        double percent = table.getJSONObject(index).getDouble("percent");
+        int status = table.getJSONObject(index).getInteger("status");
+        if (new File(PortalControl.portalWorkSpacePath + "check_result/result").exists()) {
+            status = getDatacheckTableStatus(tableName, status);
+        }
+        TableStatus tableStatus = new TableStatus(tableName, status, percent);
+        return tableStatus;
+    }
+
+    /**
+     * Gets datacheck table status.
+     *
+     * @param tableName   the table name
+     * @param tableStatus the table status
+     * @return the datacheck table status
+     */
+    public static int getDatacheckTableStatus(String tableName, int tableStatus) {
+        int status = tableStatus;
+        File[] fileList = new File(PortalControl.portalWorkSpacePath + "check_result/result").listFiles();
+        for (File file1 : fileList) {
+            String fileName = file1.getName();
+            if (fileName.contains("_" + tableName + "_")) {
+                String tableCheckStatus = Tools.readFile(file1);
+                JSONObject tableObject = JSONObject.parseObject(tableCheckStatus);
+                String tableName1 = tableObject.getString("table");
+                String result1 = tableObject.getString("result");
+                if (tableName1.equals(tableName) && status < Status.Object.FULL_MIGRATION_CHECK_FINISHED && result1.equals("success")) {
+                    status = Status.Object.FULL_MIGRATION_CHECK_FINISHED;
+                } else if (tableName1.equals(tableName) && status < Status.Object.FULL_MIGRATION_CHECK_FINISHED && result1.equals("failed")) {
+                    status = Status.Object.ERROR;
+                }
+            }
+        }
+        return status;
+    }
+
 
     /**
      * Gets chameleon object status.
@@ -1235,10 +1278,8 @@ public class Tools {
         try {
             String chameleonStr = "";
             String chameleonVenvPath = PortalControl.toolsConfigParametersTable.get(Chameleon.VENV_PATH);
-            String path = "";
-            if (new File(path).exists()) {
-                path = chameleonVenvPath + "data_default_" + Plan.workspaceId + "_" + order + ".json";
-            } else {
+            String path = chameleonVenvPath + "data_default_" + Plan.workspaceId + "_" + order + ".json";
+            if (!new File(path).exists()) {
                 path = chameleonVenvPath + "data_default_" + Plan.workspaceId + "_init_replica.json";
             }
             BufferedReader fileReader = new BufferedReader((new InputStreamReader(new FileInputStream(path))));
@@ -1247,15 +1288,17 @@ public class Tools {
                 chameleonStr += tempStr;
             }
             fileReader.close();
-            JSONObject root = JSONObject.parseObject(chameleonStr);
-            JSONArray objects = root.getJSONArray(name);
-            Iterator iterator = objects.iterator();
-            int i = 0;
-            if (iterator.hasNext()) {
-                String objectName = objects.getJSONObject(i).getString("name");
-                int status = objects.getJSONObject(i).getInteger("status");
-                ObjectStatus objectStatus = new ObjectStatus(objectName, status);
-                objectStatusList.add(objectStatus);
+            if (chameleonStr != "") {
+                JSONObject root = JSONObject.parseObject(chameleonStr);
+                JSONArray objects = root.getJSONArray(name);
+                Iterator iterator = objects.iterator();
+                int i = 0;
+                if (iterator.hasNext()) {
+                    String objectName = objects.getJSONObject(i).getString("name");
+                    int status = objects.getJSONObject(i).getInteger("status");
+                    ObjectStatus objectStatus = new ObjectStatus(objectName, status);
+                    objectStatusList.add(objectStatus);
+                }
             }
         } catch (FileNotFoundException e) {
             LOGGER.error("File not found exception occurred in get chameleon table status.");
@@ -1286,18 +1329,18 @@ public class Tools {
      * @return the string
      */
     public static String readFile(File file) {
-        String str = "";
+        StringBuilder str = new StringBuilder();
         try {
             BufferedReader fileReader = new BufferedReader((new InputStreamReader(new FileInputStream(file))));
             String tempStr = "";
             while ((tempStr = fileReader.readLine()) != null) {
-                str += tempStr;
+                str.append(tempStr);
             }
             fileReader.close();
         } catch (IOException e) {
             LOGGER.info("IO exception occurred in read file " + file.getAbsolutePath());
         }
-        return str;
+        return str.toString();
 
     }
 
@@ -1342,7 +1385,7 @@ public class Tools {
         for (String key : chameleonParameterTable.keySet()) {
             chameleonOrder.append(key).append(" ").append(chameleonParameterTable.get(key)).append(" ");
         }
-        chameleonOrder.append("--progress");
+        chameleonOrder.substring(0, chameleonOrder.length() - 1);
         result = chameleonOrder.toString();
         return result;
     }
@@ -1353,16 +1396,16 @@ public class Tools {
      * @param sourceMigrationStatusPath      the source migration status path
      * @param sinkMigrationStatusPath        the sink migration status path
      * @param incrementalMigrationStatusPath the incremental migration status path
+     * @param count                          the count
      * @return the int
      */
-    public static int changeIncrementalStatus(String sourceMigrationStatusPath, String sinkMigrationStatusPath, String incrementalMigrationStatusPath) {
+    public static int changeIncrementalStatus(String sourceMigrationStatusPath, String sinkMigrationStatusPath, String incrementalMigrationStatusPath, String count) {
         int time = 0;
-        String path = "";
         try {
             String sourceStr = "";
             sourceStr = Tools.readFile(new File(sourceMigrationStatusPath));
             JSONObject sourceObject = JSONObject.parseObject(sourceStr);
-            int createCount = sourceObject.getInteger("createCount");
+            int createCount = sourceObject.getInteger(count);
             int sourceSpeed = sourceObject.getInteger("speed");
             long sourceFirstTimestamp = sourceObject.getLong("timestamp");
             String sinkStr = "";
@@ -1376,7 +1419,7 @@ public class Tools {
                 time = Integer.parseInt(timeStr);
                 sourceStr = Tools.readFile(new File(sourceMigrationStatusPath));
                 JSONObject sourceSecondObject = JSONObject.parseObject(sourceStr);
-                createCount = sourceSecondObject.getInteger("createCount");
+                createCount = sourceSecondObject.getInteger(count);
                 sourceSpeed = sourceSecondObject.getInteger("speed");
             }
             int rest = createCount - replayedCount;
@@ -1397,5 +1440,131 @@ public class Tools {
             LOGGER.error("Interrupted Exception");
         }
         return time;
+    }
+
+    /**
+     * Read file not matches regex string.
+     *
+     * @param file  the file
+     * @param regex the regex
+     * @return the string
+     */
+    public static String readFileNotMatchesRegex(File file, String regex) {
+        StringBuilder str = new StringBuilder();
+        try {
+            BufferedReader fileReader = new BufferedReader((new InputStreamReader(new FileInputStream(file))));
+            String tempStr = "";
+            while ((tempStr = fileReader.readLine()) != null) {
+                if (!tempStr.matches(regex)) {
+                    str.append(tempStr).append(System.lineSeparator());
+                }
+            }
+            fileReader.close();
+        } catch (IOException e) {
+            LOGGER.info("IO exception occurred in read file " + file.getAbsolutePath());
+        }
+        return str.toString();
+    }
+
+    /**
+     * Output file string string.
+     *
+     * @param path the path
+     * @return the string
+     */
+    public static String outputFileString(String path) {
+        StringBuilder str = new StringBuilder();
+        try {
+            BufferedReader fileReader = new BufferedReader((new InputStreamReader(new FileInputStream(path))));
+            String tempStr = "";
+            while ((tempStr = fileReader.readLine()) != null) {
+                str.append(tempStr).append(System.lineSeparator());
+                LOGGER.info(tempStr);
+            }
+            fileReader.close();
+        } catch (IOException e) {
+            LOGGER.info("IO exception occurred in read file " + path);
+        }
+        return str.toString();
+    }
+
+    /**
+     * Write portal status.
+     */
+    public static void writePortalStatus() {
+        try {
+            FileWriter fw = new FileWriter(new File(PortalControl.portalWorkSpacePath + "status/portal.txt"));
+            PortalStatusWriter portalStatusWriter;
+            if (PortalControl.status == Status.ERROR) {
+                portalStatusWriter = new PortalStatusWriter(PortalControl.status, System.currentTimeMillis(), PortalControl.errorMsg);
+            } else {
+                portalStatusWriter = new PortalStatusWriter(PortalControl.status, System.currentTimeMillis());
+            }
+            ThreadStatusController.portalStatusWriterArrayList.add(portalStatusWriter);
+            String str = JSON.toJSONString(ThreadStatusController.portalStatusWriterArrayList);
+            fw.write(str);
+            fw.flush();
+            fw.close();
+        } catch (IOException e) {
+            LOGGER.error("IOException occurred in writing file " + PortalControl.portalWorkSpacePath + "status/portal.txt" + ".");
+        }
+    }
+
+    /**
+     * Gets parameter command line first.
+     *
+     * @param hashtable the hashtable
+     * @param path      the path
+     */
+    public static void getParameterCommandLineFirst(Hashtable<String, String> hashtable, String path) {
+        File file = new File(path);
+        if (file.exists() && file.isFile()) {
+            Properties pps = new Properties();
+            try {
+                pps.load(new FileInputStream(path));
+            } catch (IOException e) {
+                LOGGER.error("IO exception occurred in loading the file " + path + ".");
+            }
+            for (Object key : pps.keySet()) {
+                String keyString = String.valueOf(key);
+                String valueString = System.getProperty(keyString);
+                if (valueString != null) {
+                    hashtable.put(keyString, valueString);
+                } else {
+                    hashtable.put(keyString, String.valueOf(pps.getProperty(keyString)));
+                }
+            }
+            pps.clear();
+            Tools.changePropertiesParameters(hashtable, path);
+        }
+    }
+
+    /**
+     * Output result.
+     *
+     * @param flag  the flag
+     * @param order the order
+     */
+    public static void outputResult(boolean flag, String order) {
+        if (flag) {
+            LOGGER.info(order + " success.");
+        } else {
+            LOGGER.error("Error message: " + order + " failed.");
+        }
+    }
+
+    /**
+     * Output information.
+     *
+     * @param flag        the flag
+     * @param trueString  the true string
+     * @param falseString the false string
+     */
+    public static void outputInformation(boolean flag, String trueString, String falseString) {
+        if (flag) {
+            LOGGER.info(trueString);
+        } else if (!falseString.equals("")) {
+            LOGGER.error(falseString);
+        }
     }
 }

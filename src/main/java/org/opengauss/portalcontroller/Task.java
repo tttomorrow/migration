@@ -25,6 +25,8 @@ import org.opengauss.portalcontroller.constant.Check;
 import org.opengauss.portalcontroller.constant.Command;
 import org.opengauss.portalcontroller.constant.Debezium;
 import org.opengauss.portalcontroller.constant.Method;
+import org.opengauss.portalcontroller.constant.Regex;
+import org.opengauss.portalcontroller.constant.Status;
 import org.opengauss.portalcontroller.status.PortalStatusWriter;
 import org.slf4j.LoggerFactory;
 
@@ -160,25 +162,27 @@ public class Task {
             return;
         }
         if (taskProcessMap.containsKey(methodName)) {
-            String methodProcessName = taskProcessMap.get(methodName);
-            int pid = Tools.getCommandPid(methodProcessName);
-            List<RunningTaskThread> runningTaskThreadThreadList = Plan.getRunningTaskThreadsList();
-            RunningTaskThread runningTaskThread = new RunningTaskThread(methodName, methodProcessName);
-            if (pid == -1) {
-                runningTaskThread.startTask();
-                runningTaskThread.setPid(Tools.getCommandPid(methodProcessName));
-                runningTaskThreadThreadList.add(runningTaskThread);
-                Plan.setRunningTaskThreadsList(runningTaskThreadThreadList);
-                try {
+            try {
+                String methodProcessName = taskProcessMap.get(methodName);
+                int pid = Tools.getCommandPid(methodProcessName);
+                List<RunningTaskThread> runningTaskThreadThreadList = Plan.getRunningTaskThreadsList();
+                RunningTaskThread runningTaskThread = new RunningTaskThread(methodName, methodProcessName);
+                if (pid == -1) {
+                    runningTaskThread.startTask();
+                    runningTaskThread.setPid(Tools.getCommandPid(methodProcessName));
+                    runningTaskThreadThreadList.add(runningTaskThread);
+                    Plan.setRunningTaskThreadsList(runningTaskThreadThreadList);
                     Thread.sleep(sleepTime);
-                } catch (InterruptedException e) {
-                    LOGGER.error("Interrupted exception occurred in starting task.");
+                } else if (runningTaskThreadThreadList.contains(runningTaskThread)) {
+                    Thread.sleep(sleepTime);
+                    LOGGER.info(methodName + " has started.");
+                } else {
+                    Thread.sleep(sleepTime);
+                    LOGGER.info(methodName + " has started.");
+                    runningTaskThread.setPid(Tools.getCommandPid(methodProcessName));
                 }
-            } else if (runningTaskThreadThreadList.contains(runningTaskThread)) {
-                LOGGER.info(methodName + " has started.");
-            } else {
-                LOGGER.info(methodName + " has started.");
-                runningTaskThread.setPid(Tools.getCommandPid(methodProcessName));
+            } catch (InterruptedException e) {
+                LOGGER.error("Interrupted exception occurred in starting task.");
             }
         }
     }
@@ -232,6 +236,7 @@ public class Task {
         }
         String chameleonOrder = Tools.jointChameleonOrders(parametersTable, order);
         RuntimeExecTools.executeOrder(chameleonOrder, 2000, chameleonVenvPath, PortalControl.portalWorkSpacePath + "logs/full_migration.log");
+
     }
 
     /**
@@ -246,12 +251,10 @@ public class Task {
             if (Plan.stopPlan) {
                 return;
             }
-            int i = 0;
             String endFlag = order + " finished";
             while (!Plan.stopPlan) {
                 Thread.sleep(1000);
-                i++;
-                String processString = Tools.jointChameleonOrders(parametersTable, order);
+                String processString = "chameleon " + order + " --config default_" + Plan.workspaceId;
                 LOGGER.info(order + " running");
                 boolean processQuit = Tools.getCommandPid(processString) == -1;
                 boolean finished = Tools.lastLine(PortalControl.portalWorkSpacePath + "logs/full_migration.log").contains(endFlag);
@@ -259,7 +262,9 @@ public class Task {
                     LOGGER.info(order + " finished");
                     break;
                 } else if (processQuit) {
-                    LOGGER.error("Process " + processString + " exit abnormally.Please read " + PortalControl.portalWorkSpacePath + "logs/full_migration.log or error.log to get information.");
+                    LOGGER.error("Error message: Process " + processString + " exit abnormally.Please read " + PortalControl.portalWorkSpacePath + "logs/full_migration.log or error.log to get information.");
+                    PortalControl.status = Status.ERROR;
+                    PortalControl.errorMsg = Tools.readFileNotMatchesRegex(new File(PortalControl.portalWorkSpacePath + "logs/full_migration.log"), Regex.CHAMELEON_LOG);
                     Plan.stopPlan = true;
                     break;
                 }
@@ -521,7 +526,7 @@ public class Task {
                         return false;
                     }
                     if (existingTaskList.contains(task)) {
-                        LOGGER.error("The task has existed.");
+                        LOGGER.error("The task already exists.");
                         return false;
                     }
                     if (!checkDatacheckType(taskList, task)) {
