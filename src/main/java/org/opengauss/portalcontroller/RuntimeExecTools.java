@@ -272,7 +272,7 @@ public class RuntimeExecTools {
             LOGGER.error("Error message: No package to install.");
         }
         if (packagePath.endsWith(".zip")) {
-            command = "unzip " + packagePath + " " + directory;
+            command = "unzip -q -o " + packagePath + " -d " + directory;
             executeOrder(command, 900000, PortalControl.portalControlPath + "logs/error.log");
             LOGGER.info("Unzip file finished.");
         } else if (packagePath.endsWith(".tar.gz") || packagePath.endsWith(".tgz")) {
