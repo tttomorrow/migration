@@ -1567,4 +1567,18 @@ public class Tools {
             LOGGER.error(falseString);
         }
     }
+
+    /**
+     * Run curl.
+     *
+     * @param log        the log
+     * @param configFile the config file
+     */
+    public static void runCurl(String log, String configFile) {
+        Tools.createFile(log, true);
+        String config = Tools.getSinglePropertiesParameter("key.converter.schema.registry.url", configFile);
+        config += "/config";
+        String[] cmdParts = new String[]{"curl", "-X", "PUT", "-H", "Content-Type: application/vnd.schemaregistry.v1+json", "--data", "{\"compatibility\": \"NONE\"}", config};
+        RuntimeExecTools.executeOrderCurrentRuntime(cmdParts, 1000, log);
+    }
 }

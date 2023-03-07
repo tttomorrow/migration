@@ -352,9 +352,7 @@ public class Task {
      * @param path Path.
      */
     public void runKafkaConnectSource(String path) {
-        String[] cmdParts = new String[]{"curl", "-X", "PUT", "-H", "Content-Type: application/vnd.schemaregistry.v1+json", "--data", "{\"compatibility\": \"NONE\"}", "http://localhost:8081/config"};
-        Tools.createFile(PortalControl.portalWorkSpacePath + "curl.log", true);
-        RuntimeExecTools.executeOrderCurrentRuntime(cmdParts, 1000, PortalControl.portalWorkSpacePath + "curl.log");
+        Tools.runCurl(PortalControl.portalWorkSpacePath + "curl.log", PortalControl.portalWorkSpacePath + "config/debezium/connect-avro-standalone-source.properties");
         RuntimeExecTools.executeOrder(path + "bin/connect-standalone -daemon " + PortalControl.portalWorkSpacePath + "config/debezium/connect-avro-standalone-source.properties " + PortalControl.portalWorkSpacePath + "config/debezium/mysql-source.properties", 3000, PortalControl.portalWorkSpacePath + "logs/error.log");
         LOGGER.info("Start kafkaConnector source.");
     }
@@ -375,6 +373,7 @@ public class Task {
      * @param path the path
      */
     public void runReverseKafkaConnectSource(String path) {
+        Tools.runCurl(PortalControl.portalWorkSpacePath + "curl-reverse.log", PortalControl.portalWorkSpacePath + "config/debezium/connect-avro-standalone-reverse-source.properties");
         RuntimeExecTools.executeOrder(path + "bin/connect-standalone -daemon " + PortalControl.portalWorkSpacePath + "config/debezium/connect-avro-standalone-reverse-source.properties " + PortalControl.portalWorkSpacePath + "config/debezium/opengauss-source.properties", 5000, PortalControl.portalWorkSpacePath + "logs/error.log");
         LOGGER.info("Start reverseKafkaConnect source.");
     }
