@@ -93,7 +93,6 @@ public class CheckTaskFullDatacheck implements CheckTask {
         Task.startTaskMethod(Method.Run.CHECK_SINK, 5000);
         Task.startTaskMethod(Method.Run.CHECK, 5000);
         if (PortalControl.status != Status.ERROR) {
-            LOGGER.info("Mysql datacheck has started.");
             PortalControl.status = Status.RUNNING_FULL_MIGRATION_CHECK;
         }
         checkEnd();
