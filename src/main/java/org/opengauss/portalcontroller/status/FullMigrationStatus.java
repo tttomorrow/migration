@@ -7,51 +7,110 @@ import java.util.ArrayList;
  */
 public class FullMigrationStatus {
     private ArrayList<TableStatus> table = new ArrayList<>();
-   private ArrayList<ObjectStatus> view = new ArrayList<>();
+    private ArrayList<ObjectStatus> view = new ArrayList<>();
     private ArrayList<ObjectStatus> function = new ArrayList<>();
     private ArrayList<ObjectStatus> trigger = new ArrayList<>();
     private ArrayList<ObjectStatus> procedure = new ArrayList<>();
 
+    /**
+     * Gets table.
+     *
+     * @return the table
+     */
     public ArrayList<TableStatus> getTable() {
         return table;
     }
 
+    /**
+     * Sets table.
+     *
+     * @param table the table
+     */
     public void setTable(ArrayList<TableStatus> table) {
         this.table = table;
     }
 
+    /**
+     * Gets view.
+     *
+     * @return the view
+     */
     public ArrayList<ObjectStatus> getView() {
         return view;
     }
 
+    /**
+     * Sets view.
+     *
+     * @param view the view
+     */
     public void setView(ArrayList<ObjectStatus> view) {
         this.view = view;
     }
 
+    /**
+     * Gets function.
+     *
+     * @return the function
+     */
     public ArrayList<ObjectStatus> getFunction() {
         return function;
     }
 
+    /**
+     * Sets function.
+     *
+     * @param function the function
+     */
     public void setFunction(ArrayList<ObjectStatus> function) {
         this.function = function;
     }
 
+    /**
+     * Gets trigger.
+     *
+     * @return the trigger
+     */
     public ArrayList<ObjectStatus> getTrigger() {
         return trigger;
     }
 
+    /**
+     * Sets trigger.
+     *
+     * @param trigger the trigger
+     */
     public void setTrigger(ArrayList<ObjectStatus> trigger) {
         this.trigger = trigger;
     }
 
+    /**
+     * Gets procedure.
+     *
+     * @return the procedure
+     */
     public ArrayList<ObjectStatus> getProcedure() {
         return procedure;
     }
 
+    /**
+     * Sets procedure.
+     *
+     * @param procedure the procedure
+     */
     public void setProcedure(ArrayList<ObjectStatus> procedure) {
         this.procedure = procedure;
     }
 
+    /**
+     * Instantiates a new Full migration status.
+     *
+     * @param table     the table
+     * @param view      the view
+     * @param function  the function
+     * @param trigger   the trigger
+     * @param procedure the procedure
+     */
     public FullMigrationStatus(ArrayList<TableStatus> table, ArrayList<ObjectStatus> view, ArrayList<ObjectStatus> function, ArrayList<ObjectStatus> trigger, ArrayList<ObjectStatus> procedure) {
         this.table = table;
         this.view = view;

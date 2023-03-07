@@ -2,12 +2,14 @@ package org.opengauss.portalcontroller.check;
 
 import org.opengauss.portalcontroller.*;
 import org.opengauss.portalcontroller.constant.*;
+import org.opengauss.portalcontroller.software.Confluent;
+import org.opengauss.portalcontroller.software.Kafka;
+import org.opengauss.portalcontroller.software.Software;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.Hashtable;
-import java.util.List;
 
 /**
  * The type Check task full datacheck.
@@ -38,10 +40,19 @@ public class CheckTaskFullDatacheck implements CheckTask {
      * Install datacheck package.
      */
     @Override
-    public void installAllPackages() {
-        Hashtable<String, String> hashtable = PortalControl.toolsConfigParametersTable;
-        Tools.installPackage(PortalControl.toolsConfigParametersTable.get(Debezium.Kafka.PATH) + "libs/kafka-streams-examples-3.2.3.jar", Debezium.PKG_PATH, Debezium.Kafka.PKG_NAME, hashtable.get(Debezium.PATH));
-        Tools.installPackage(PortalControl.toolsConfigParametersTable.get(Check.PATH) + "config/log4j2.xml", Check.PKG_PATH, Check.PKG_NAME, hashtable.get(Check.INSTALL_PATH));
+    public boolean installAllPackages(boolean download) {
+        ArrayList<Software> softwareArrayList = new ArrayList<>();
+        softwareArrayList.add(new Kafka());
+        softwareArrayList.add(new Confluent());
+        boolean flag = InstallMigrationTools.installMigrationTools(softwareArrayList,download);
+        return flag;
+    }
+
+    @Override
+    public boolean installAllPackages() {
+        CheckTask checkTask = new CheckTaskFullDatacheck();
+        boolean flag = InstallMigrationTools.installSingleMigrationTool(checkTask,MigrationParameters.Install.CHECK);
+        return flag;
     }
 
     /**
@@ -71,7 +82,9 @@ public class CheckTaskFullDatacheck implements CheckTask {
 
     @Override
     public void start(String workspaceId) {
-        PortalControl.status = Status.START_FULL_MIGRATION_CHECK;
+        if (PortalControl.status != Status.ERROR) {
+            PortalControl.status = Status.START_FULL_MIGRATION_CHECK;
+        }
         Plan.runningTaskList.add(Command.Start.Mysql.FULL_CHECK);
         Task.startTaskMethod(Method.Run.ZOOKEEPER, 8000);
         Task.startTaskMethod(Method.Run.KAFKA, 8000);
@@ -79,8 +92,10 @@ public class CheckTaskFullDatacheck implements CheckTask {
         Task.startTaskMethod(Method.Run.CHECK_SOURCE, 5000);
         Task.startTaskMethod(Method.Run.CHECK_SINK, 5000);
         Task.startTaskMethod(Method.Run.CHECK, 5000);
-        LOGGER.info("Mysql datacheck has started.");
-        PortalControl.status = Status.RUNNING_FULL_MIGRATION_CHECK;
+        if (PortalControl.status != Status.ERROR) {
+            LOGGER.info("Mysql datacheck has started.");
+            PortalControl.status = Status.RUNNING_FULL_MIGRATION_CHECK;
+        }
         checkEnd();
     }
 
@@ -101,8 +116,10 @@ public class CheckTaskFullDatacheck implements CheckTask {
     public void checkEnd() {
         while (true) {
             if (Tools.getCommandPid(Task.getTaskProcessMap().get(Method.Run.CHECK)) == -1) {
-                LOGGER.info("Full migration datacheck is finished.");
-                PortalControl.status = Status.FULL_MIGRATION_CHECK_FINISHED;
+                if (PortalControl.status != Status.ERROR) {
+                    LOGGER.info("Full migration datacheck is finished.");
+                    PortalControl.status = Status.FULL_MIGRATION_CHECK_FINISHED;
+                }
                 break;
             }
             if (!Plan.stopPlan) {
@@ -114,5 +131,15 @@ public class CheckTaskFullDatacheck implements CheckTask {
                 LOGGER.error("Interrupted exception occurred in running full migration datacheck.");
             }
         }
+    }
+
+    public void uninstall(){
+        String errorPath = PortalControl.portalControlPath + "logs/error.log";
+        ArrayList<String> filePaths = new ArrayList<>();
+        filePaths.add(PortalControl.toolsConfigParametersTable.get(Debezium.PATH));
+        filePaths.add(PortalControl.portalControlPath + "tmp/kafka-logs");
+        filePaths.add(PortalControl.portalControlPath + "tmp/zookeeper");
+        filePaths.add(PortalControl.toolsConfigParametersTable.get(Check.PATH));
+        InstallMigrationTools.removeSingleMigrationToolFiles(filePaths,errorPath);
     }
 }

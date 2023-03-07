@@ -14,7 +14,7 @@
    | debezium.path                | debezium+kafka所在路径（默认kafka、confluent、connector都安装在该路径下） |
    | kafka.path                   | kafka所在路径                                                |
    | confluent.path               | confluent所在路径                                            |
-   | connector.path               | connector所在路径                                            |
+   | connector.path               | connector(包括mysql和openGauss)所在路径                      |
    | debezium.pkg.path            | debezium+kafka安装包所在路径（默认kafka、confluent、connector安装包都在该路径下） |
    | kafka.pkg.name               | kafka安装包名                                                |
    | confluent.pkg.name           | confluent安装包名                                            |

@@ -25,7 +25,9 @@ public interface Command {
                 String DEFAULT = "install mysql reverse migration tools";
             }
             interface All{
+                String ONLINE = "install mysql all migration tools online";
                 String DEFAULT = "install mysql all migration tools";
+                String OFFLINE = "install mysql all migration tools offline";
             }
         }
     }

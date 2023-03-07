@@ -18,6 +18,7 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Hashtable;
 
 /**
  * The type Thread status controller.
@@ -60,13 +61,7 @@ public class ThreadStatusController extends Thread {
         while (!exit) {
             try {
                 int time = 0;
-                FileWriter fw = new FileWriter(new File(PortalControl.portalWorkSpacePath + "status/portal.txt"));
-                PortalStatusWriter portalStatusWriter = new PortalStatusWriter(PortalControl.status, System.currentTimeMillis());
-                portalStatusWriterArrayList.add(portalStatusWriter);
-                String str = JSON.toJSONString(portalStatusWriterArrayList);
-                fw.write(str);
-                fw.flush();
-                fw.close();
+                Tools.writePortalStatus();
                 String chameleonVenvPath = PortalControl.toolsConfigParametersTable.get(Chameleon.VENV_PATH);
                 String path = chameleonVenvPath + "data_default_" + Plan.workspaceId + "_init_replica.json";
                 if (new File(path).exists()) {
@@ -77,7 +72,7 @@ public class ThreadStatusController extends Thread {
                     String sinkIncrementalStatusPath = PortalControl.portalWorkSpacePath + "status/incremental/forward-sink-process.txt";
                     String incrementalStatusPath = PortalControl.portalWorkSpacePath + "status/incremental_migration.txt";
                     if (new File(sourceIncrementalStatusPath).exists() && new File(sinkIncrementalStatusPath).exists()) {
-                        time = Tools.changeIncrementalStatus(sourceIncrementalStatusPath, sinkIncrementalStatusPath, incrementalStatusPath);
+                        time = Tools.changeIncrementalStatus(sourceIncrementalStatusPath, sinkIncrementalStatusPath, incrementalStatusPath, "createCount");
                     }
                 }
                 if (PortalControl.status >= Status.START_REVERSE_MIGRATION && PortalControl.status != Status.ERROR) {
@@ -85,18 +80,22 @@ public class ThreadStatusController extends Thread {
                     String sinkReverseStatusPath = PortalControl.portalWorkSpacePath + "status/reverse/reverse-sink-process.txt";
                     String reverseStatusPath = PortalControl.portalWorkSpacePath + "status/reverse_migration.txt";
                     if (new File(sourceReverseStatusPath).exists() && new File(sinkReverseStatusPath).exists()) {
-                        time = Tools.changeIncrementalStatus(sourceReverseStatusPath, sinkReverseStatusPath, reverseStatusPath);
+                        time = Tools.changeIncrementalStatus(sourceReverseStatusPath, sinkReverseStatusPath, reverseStatusPath, "count");
                     }
                 }
                 String kafkaPath = PortalControl.toolsConfigParametersTable.get(Debezium.Kafka.PATH);
                 String confluentPath = PortalControl.toolsConfigParametersTable.get(Debezium.Confluent.PATH);
-                RuntimeExecTools.copyFileNotExist(kafkaPath + "logs/server.log", PortalControl.portalWorkSpacePath + "logs/debezium/server.log");
-                RuntimeExecTools.copyFileNotExist(confluentPath + "logs/schema-registry.log", PortalControl.portalWorkSpacePath + "logs/debezium/schema-registry.log");
-                RuntimeExecTools.copyFileNotExist(confluentPath + "logs/connect_" + workspaceId + ".log", PortalControl.portalWorkSpacePath + "logs/debezium/connect.log");
-                RuntimeExecTools.copyFileNotExist(confluentPath + "logs/connect_" + workspaceId + "_reverse.log", PortalControl.portalWorkSpacePath + "logs/debezium/reverse_connect.log");
+                Hashtable<String,String> hashtable = new Hashtable<>();
+                hashtable.put(kafkaPath + "logs/server.log", PortalControl.portalWorkSpacePath + "logs/debezium/server.log");
+                hashtable.put(confluentPath + "logs/schema-registry.log", PortalControl.portalWorkSpacePath + "logs/debezium/schema-registry.log");
+                hashtable.put(confluentPath + "logs/connect_" + workspaceId + ".log", PortalControl.portalWorkSpacePath + "logs/debezium/connect.log");
+                hashtable.put(confluentPath + "logs/connect_" + workspaceId + "_reverse.log", PortalControl.portalWorkSpacePath + "logs/debezium/reverse_connect.log");
+                for(String key: hashtable.keySet()){
+                    if(new File(key).exists()){
+                        RuntimeExecTools.copyFile(key,hashtable.get(key),true);
+                    }
+                }
                 Thread.sleep(1000 - time);
-            } catch (IOException e) {
-                LOGGER.error("Write status failed.");
             } catch (InterruptedException e) {
                 LOGGER.error("Interrupted exception.");
             }
