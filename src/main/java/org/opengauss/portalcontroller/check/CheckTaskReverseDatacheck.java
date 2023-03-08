@@ -85,7 +85,6 @@ public class CheckTaskReverseDatacheck implements CheckTask {
         Task.startTaskMethod(Method.Run.CHECK_SOURCE, 5000);
         Task.startTaskMethod(Method.Run.CHECK_SINK, 5000);
         Task.startTaskMethod(Method.Run.CHECK, 5000);
-        LOGGER.info("Mysql incremental datacheck has started.");
         checkEnd();
     }
 
