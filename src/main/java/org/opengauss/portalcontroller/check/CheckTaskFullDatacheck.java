@@ -113,7 +113,7 @@ public class CheckTaskFullDatacheck implements CheckTask {
     }
 
     public void checkEnd() {
-        while (true) {
+        while (!Plan.stopPlan) {
             if (Tools.getCommandPid(Task.getTaskProcessMap().get(Method.Run.CHECK)) == -1) {
                 if (PortalControl.status != Status.ERROR) {
                     LOGGER.info("Full migration datacheck is finished.");
@@ -121,9 +121,7 @@ public class CheckTaskFullDatacheck implements CheckTask {
                 }
                 break;
             }
-            if (!Plan.stopPlan) {
-                LOGGER.info("Full migration datacheck is running...");
-            }
+            LOGGER.info("Full migration datacheck is running...");
             try {
                 Thread.sleep(1500);
             } catch (InterruptedException e) {
