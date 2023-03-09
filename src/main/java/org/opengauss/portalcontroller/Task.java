@@ -25,10 +25,12 @@ import org.opengauss.portalcontroller.constant.Check;
 import org.opengauss.portalcontroller.constant.Command;
 import org.opengauss.portalcontroller.constant.Debezium;
 import org.opengauss.portalcontroller.constant.Method;
+import org.opengauss.portalcontroller.constant.Parameter;
 import org.opengauss.portalcontroller.constant.Regex;
 import org.opengauss.portalcontroller.constant.Status;
 import org.opengauss.portalcontroller.status.PortalStatusWriter;
 import org.slf4j.LoggerFactory;
+import org.springframework.core.annotation.Order;
 
 
 import java.io.File;
@@ -290,12 +292,9 @@ public class Task {
      * @param path Path.
      */
     public void stopZookeeper(String path) {
-        if (Tools.checkAnotherProcessExist("portalControl-1.0-SNAPSHOT-exec.jar")) {
-            LOGGER.info("Another portal is running.Wait for the lastest portal to stop zookeeper.");
-        } else {
-            RuntimeExecTools.executeOrder(path + "bin/zookeeper-server-stop.sh " + path + "config/zookeeper.properties", 3000, PortalControl.portalWorkSpacePath + "logs/error.log");
-            LOGGER.info("Stop zookeeper.");
-        }
+        String order = path + "bin/zookeeper-server-stop.sh " + path + "config/zookeeper.properties";
+        String executeFile = path + "bin/zookeeper-server-stop.sh";
+        Tools.stopPublicSoftware(Method.Run.ZOOKEEPER, executeFile, order, "zookeeper");
     }
 
     /**
@@ -314,12 +313,9 @@ public class Task {
      * @param path Path.
      */
     public void stopKafka(String path) {
-        if (Tools.checkAnotherProcessExist("portalControl-1.0-SNAPSHOT-exec.jar")) {
-            LOGGER.info("Another portal is running.Wait for the lastest portal to stop kafka.");
-        } else {
-            RuntimeExecTools.executeOrder(path + "bin/kafka-server-stop.sh " + path + "config/server.properties", 3000, PortalControl.portalWorkSpacePath + "logs/error.log");
-            LOGGER.info("Stop kafka.");
-        }
+        String order = path + "bin/kafka-server-stop.sh " + path + "config/server.properties";
+        String executeFile = path + "bin/kafka-server-stop.sh";
+        Tools.stopPublicSoftware(Method.Run.KAFKA, executeFile, order, "kafka");
     }
 
     /**
@@ -329,7 +325,7 @@ public class Task {
      */
     public void runSchemaRegistry(String path) {
         RuntimeExecTools.executeOrder(path + "bin/schema-registry-start -daemon " + path + "etc/schema-registry/schema-registry.properties", 3000, PortalControl.portalWorkSpacePath + "logs/error.log");
-        LOGGER.info("Start kafkaSchemaRegistry.");
+        LOGGER.info("Start kafka schema registry.");
     }
 
     /**
@@ -338,12 +334,9 @@ public class Task {
      * @param path Path.
      */
     public void stopKafkaSchema(String path) {
-        if (Tools.checkAnotherProcessExist("portalControl-1.0-SNAPSHOT-exec.jar")) {
-            LOGGER.info("Another portal is running.Wait for the lastest portal to stop schema registry.");
-        } else {
-            RuntimeExecTools.executeOrder(path + "bin/schema-registry-stop " + path + "etc/schema-registry/schema-registry.properties", 3000, PortalControl.portalWorkSpacePath + "logs/error.log");
-            LOGGER.info("Stop kafkaSchemaRegistry.");
-        }
+        String order = path + "bin/schema-registry-stop " + path + "etc/schema-registry/schema-registry.properties";
+        String executeFile = path + "bin/schema-registry-stop";
+        Tools.stopPublicSoftware(Method.Run.REGISTRY, executeFile, order, "kafka schema registry");
     }
 
     /**
@@ -354,7 +347,7 @@ public class Task {
     public void runKafkaConnectSource(String path) {
         Tools.runCurl(PortalControl.portalWorkSpacePath + "curl.log", PortalControl.portalWorkSpacePath + "config/debezium/connect-avro-standalone-source.properties");
         RuntimeExecTools.executeOrder(path + "bin/connect-standalone -daemon " + PortalControl.portalWorkSpacePath + "config/debezium/connect-avro-standalone-source.properties " + PortalControl.portalWorkSpacePath + "config/debezium/mysql-source.properties", 3000, PortalControl.portalWorkSpacePath + "logs/error.log");
-        LOGGER.info("Start kafkaConnector source.");
+        LOGGER.info("Start mysql connector source.");
     }
 
     /**
@@ -364,7 +357,7 @@ public class Task {
      */
     public void runKafkaConnectSink(String path) {
         RuntimeExecTools.executeOrder(path + "bin/connect-standalone -daemon " + PortalControl.portalWorkSpacePath + "config/debezium/connect-avro-standalone-sink.properties " + PortalControl.portalWorkSpacePath + "config/debezium/mysql-sink.properties", 3000, PortalControl.portalWorkSpacePath + "logs/error.log");
-        LOGGER.info("Start kafkaConnector sink.");
+        LOGGER.info("Start mysql connector sink.");
     }
 
     /**
@@ -375,7 +368,7 @@ public class Task {
     public void runReverseKafkaConnectSource(String path) {
         Tools.runCurl(PortalControl.portalWorkSpacePath + "curl-reverse.log", PortalControl.portalWorkSpacePath + "config/debezium/connect-avro-standalone-reverse-source.properties");
         RuntimeExecTools.executeOrder(path + "bin/connect-standalone -daemon " + PortalControl.portalWorkSpacePath + "config/debezium/connect-avro-standalone-reverse-source.properties " + PortalControl.portalWorkSpacePath + "config/debezium/opengauss-source.properties", 5000, PortalControl.portalWorkSpacePath + "logs/error.log");
-        LOGGER.info("Start reverseKafkaConnect source.");
+        LOGGER.info("Start opengauss connector source.");
     }
 
 
@@ -386,51 +379,35 @@ public class Task {
      */
     public void runReverseKafkaConnectSink(String path) {
         RuntimeExecTools.executeOrder(path + "bin/connect-standalone -daemon " + PortalControl.portalWorkSpacePath + "config/debezium/connect-avro-standalone-reverse-sink.properties " + PortalControl.portalWorkSpacePath + "config/debezium/opengauss-sink.properties", 5000, PortalControl.portalWorkSpacePath + "logs/error.log");
-        LOGGER.info("Start reverseKafkaConnect sink.");
+        LOGGER.info("Start opengauss connector sink.");
     }
 
     /**
      * Stop kafka connect.
      */
     public void stopKafkaConnectSource() {
-        int pid = Tools.getCommandPid(taskProcessMap.get(Method.Run.CONNECT_SOURCE));
-        if (pid != -1) {
-            RuntimeExecTools.executeOrder("kill -15 " + pid, 2000, PortalControl.portalWorkSpacePath + "logs/error.log");
-        }
-        LOGGER.info("Stop kafkaConnect source.");
+        Tools.stopExclusiveSoftware(Method.Run.CONNECT_SOURCE, Parameter.MYSQL_CONNECTOR_SOURCE_NAME);
     }
 
     /**
      * Stop kafka connect sink.
      */
     public void stopKafkaConnectSink() {
-        int pid = Tools.getCommandPid(taskProcessMap.get(Method.Run.CONNECT_SINK));
-        if (pid != -1) {
-            RuntimeExecTools.executeOrder("kill -15 " + pid, 2000, PortalControl.portalWorkSpacePath + "logs/error.log");
-        }
-        LOGGER.info("Stop kafkaConnect sink.");
+        Tools.stopExclusiveSoftware(Method.Run.CONNECT_SINK, Parameter.MYSQL_CONNECTOR_SINK_NAME);
     }
 
     /**
      * Stop reverse kafka connect.
      */
     public void stopReverseKafkaConnectSource() {
-        int pid = Tools.getCommandPid(taskProcessMap.get(Method.Run.REVERSE_CONNECT_SOURCE));
-        if (pid != -1) {
-            RuntimeExecTools.executeOrder("kill -15 " + pid, 2000, PortalControl.portalWorkSpacePath + "logs/error.log");
-        }
-        LOGGER.info("Stop reverseKafkaConnect source.");
+        Tools.stopExclusiveSoftware(Method.Run.REVERSE_CONNECT_SOURCE, Parameter.OPENGAUSS_CONNECTOR_SOURCE_NAME);
     }
 
     /**
      * Stop reverse kafka connect sink.
      */
     public void stopReverseKafkaConnectSink() {
-        int pid = Tools.getCommandPid(taskProcessMap.get(Method.Run.REVERSE_CONNECT_SINK));
-        if (pid != -1) {
-            RuntimeExecTools.executeOrder("kill -15 " + pid, 2000, PortalControl.portalWorkSpacePath + "logs/error.log");
-        }
-        LOGGER.info("Stop reverseKafkaConnect sink.");
+        Tools.stopExclusiveSoftware(Method.Run.REVERSE_CONNECT_SINK, Parameter.OPENGAUSS_CONNECTOR_SINK_NAME);
     }
 
     /**
@@ -472,7 +449,13 @@ public class Task {
         if (pid != -1) {
             RuntimeExecTools.executeOrder("kill -9 " + pid, 3000, PortalControl.portalWorkSpacePath + "logs/error.log");
         }
-        LOGGER.info("Stop datacheck.");
+        for (RunningTaskThread runningTaskThread : Plan.getRunningTaskThreadsList()) {
+            if (runningTaskThread.getMethodName().equals(Method.Run.CHECK)) {
+                LOGGER.info("Stop datacheck.");
+                break;
+            }
+        }
+
     }
 
     /**
@@ -484,7 +467,12 @@ public class Task {
         if (pid != -1) {
             RuntimeExecTools.executeOrder("kill -9 " + pid, 3000, PortalControl.portalWorkSpacePath + "logs/error.log");
         }
-        LOGGER.info("Stop datacheck sink.");
+        for (RunningTaskThread runningTaskThread : Plan.getRunningTaskThreadsList()) {
+            if (runningTaskThread.getMethodName().equals(Method.Run.CHECK_SINK)) {
+                LOGGER.info("Stop datacheck sink.");
+                break;
+            }
+        }
     }
 
     /**
@@ -496,7 +484,12 @@ public class Task {
         if (pid != -1) {
             RuntimeExecTools.executeOrder("kill -9 " + pid, 3000, PortalControl.portalWorkSpacePath + "logs/error.log");
         }
-        LOGGER.info("Stop datacheck source.");
+        for (RunningTaskThread runningTaskThread : Plan.getRunningTaskThreadsList()) {
+            if (runningTaskThread.getMethodName().equals(Method.Run.CHECK_SOURCE)) {
+                LOGGER.info("Stop datacheck source.");
+                break;
+            }
+        }
     }
 
     /**

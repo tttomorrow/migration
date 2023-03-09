@@ -4,6 +4,8 @@ import org.opengauss.portalcontroller.*;
 import org.opengauss.portalcontroller.constant.Debezium;
 import org.opengauss.portalcontroller.constant.Method;
 import org.opengauss.portalcontroller.constant.MigrationParameters;
+import org.opengauss.portalcontroller.constant.Parameter;
+import org.opengauss.portalcontroller.constant.StartPort;
 import org.opengauss.portalcontroller.constant.Status;
 import org.opengauss.portalcontroller.software.*;
 import org.slf4j.Logger;
@@ -27,7 +29,7 @@ public class CheckTaskReverseMigration implements CheckTask {
         softwareArrayList.add(new Kafka());
         softwareArrayList.add(new Confluent());
         softwareArrayList.add(new ConnectorOpengauss());
-        boolean flag = InstallMigrationTools.installMigrationTools(softwareArrayList,download);
+        boolean flag = InstallMigrationTools.installMigrationTools(softwareArrayList, download);
         return flag;
     }
 
@@ -37,7 +39,7 @@ public class CheckTaskReverseMigration implements CheckTask {
     @Override
     public boolean installAllPackages() {
         CheckTask checkTask = new CheckTaskReverseMigration();
-        boolean flag = InstallMigrationTools.installSingleMigrationTool(checkTask,MigrationParameters.Install.REVERSE_MIGRATION);
+        boolean flag = InstallMigrationTools.installSingleMigrationTool(checkTask, MigrationParameters.Install.REVERSE_MIGRATION);
         return flag;
     }
 
@@ -61,7 +63,6 @@ public class CheckTaskReverseMigration implements CheckTask {
         String sourceConfigPath = PortalControl.portalWorkSpacePath + "config/debezium/opengauss-source.properties";
         String sinkConfigPath = PortalControl.portalWorkSpacePath + "config/debezium/opengauss-sink.properties";
         Hashtable<String, String> hashtable1 = new Hashtable<>();
-        hashtable1.put("name", "opengauss-source-" + workspaceId);
         hashtable1.put("database.server.name", "opengauss_server_" + workspaceId);
         hashtable1.put("database.history.kafka.topic", "opengauss_server_" + workspaceId + "_history");
         hashtable1.put("transforms.route.regex", "^" + "opengauss_server_" + workspaceId + "(.*)");
@@ -70,7 +71,6 @@ public class CheckTaskReverseMigration implements CheckTask {
         hashtable1.put("slot.name", "slot_" + workspaceId);
         Tools.changePropertiesParameters(hashtable1, sourceConfigPath);
         Hashtable<String, String> hashtable2 = new Hashtable<>();
-        hashtable2.put("name", "opengauss-sink-" + workspaceId);
         hashtable2.put("topics", "opengauss_server_" + workspaceId + "_topic");
         hashtable2.put("file.path", portalWorkSpacePath + "status/reverse");
         Tools.changePropertiesParameters(hashtable2, sinkConfigPath);
@@ -96,12 +96,14 @@ public class CheckTaskReverseMigration implements CheckTask {
             LOGGER.error("Another connector is running.Cannot run reverse migration with workspaceId is " + workspaceId + " .");
             return;
         }
-        int port = Tools.getAvailablePorts(1, 1000).get(0);
+        int sourcePort = StartPort.REST_OPENGAUSS_SOURCE + PortalControl.portId * 10;
+        int port = Tools.getAvailablePorts(sourcePort, 1, 1000).get(0);
         Tools.changeSinglePropertiesParameter("rest.port", String.valueOf(port), PortalControl.portalWorkSpacePath + "config/debezium/connect-avro-standalone-reverse-source.properties");
         String confluentPath = PortalControl.toolsConfigParametersTable.get(Debezium.Confluent.PATH);
         Tools.changeConnectXmlFile(workspaceId + "_reverse", confluentPath + "etc/kafka/connect-log4j.properties");
         Task.startTaskMethod(Method.Run.REVERSE_CONNECT_SOURCE, 8000);
-        int port2 = Tools.getAvailablePorts(1, 1000).get(0);
+        int sinkPort = StartPort.REST_OPENGAUSS_SINK + PortalControl.portId * 10;
+        int port2 = Tools.getAvailablePorts(sinkPort, 1, 1000).get(0);
         Tools.changeSinglePropertiesParameter("rest.port", String.valueOf(port2), PortalControl.portalWorkSpacePath + "config/debezium/connect-avro-standalone-reverse-sink.properties");
         Tools.changeConnectXmlFile(workspaceId + "_reverse", confluentPath + "etc/kafka/connect-log4j.properties");
         Task.startTaskMethod(Method.Run.REVERSE_CONNECT_SINK, 8000);
@@ -160,12 +162,12 @@ public class CheckTaskReverseMigration implements CheckTask {
         }
     }
 
-    public void uninstall(){
+    public void uninstall() {
         String errorPath = PortalControl.portalControlPath + "logs/error.log";
         ArrayList<String> filePaths = new ArrayList<>();
         filePaths.add(PortalControl.toolsConfigParametersTable.get(Debezium.PATH));
         filePaths.add(PortalControl.portalControlPath + "tmp/kafka-logs");
         filePaths.add(PortalControl.portalControlPath + "tmp/zookeeper");
-        InstallMigrationTools.removeSingleMigrationToolFiles(filePaths,errorPath);
+        InstallMigrationTools.removeSingleMigrationToolFiles(filePaths, errorPath);
     }
 }

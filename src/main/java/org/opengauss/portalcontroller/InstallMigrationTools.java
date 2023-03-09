@@ -72,8 +72,8 @@ public class InstallMigrationTools {
         String pkgPath = initParameterHashtable.get(Parameter.PKG_PATH);
         if (download) {
             flag = RuntimeExecTools.download(pkgUrl, pkgPath);
+            Tools.outputResult(flag,"download " + pkgUrl);
         }
-        Tools.outputResult(flag,"download " + pkgUrl);
         flag = Tools.installPackage(criticalFileList, pkgPath, pkgName, PortalControl.toolsConfigParametersTable.get(installPath),path);
         Tools.outputResult(flag,"install " + PortalControl.toolsConfigParametersTable.get(pkgName));
         return flag;

@@ -23,10 +23,13 @@ import org.opengauss.portalcontroller.constant.Check;
 import org.opengauss.portalcontroller.constant.Command;
 import org.opengauss.portalcontroller.constant.Debezium;
 import org.opengauss.portalcontroller.constant.Default;
+import org.opengauss.portalcontroller.constant.Method;
 import org.opengauss.portalcontroller.constant.Mysql;
 import org.opengauss.portalcontroller.constant.Offset;
 import org.opengauss.portalcontroller.constant.Opengauss;
+import org.opengauss.portalcontroller.constant.Parameter;
 import org.opengauss.portalcontroller.constant.Regex;
+import org.opengauss.portalcontroller.constant.StartPort;
 import org.opengauss.portalcontroller.constant.Status;
 import org.opengauss.portalcontroller.status.FullMigrationStatus;
 import org.opengauss.portalcontroller.status.IncrementalMigrationStatus;
@@ -55,6 +58,8 @@ import java.io.RandomAccessFile;
 import java.net.InetAddress;
 import java.net.Socket;
 import java.net.UnknownHostException;
+import java.nio.channels.FileChannel;
+import java.nio.channels.FileLock;
 import java.nio.charset.StandardCharsets;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
@@ -323,7 +328,7 @@ public class Tools {
             BufferedReader br = new BufferedReader(new InputStreamReader(in));
             String s = "";
             while ((s = br.readLine()) != null) {
-                if (s.contains(command)) {
+                if (s.contains(command) && s.contains(Parameter.PORTAL_NAME)) {
                     count++;
                     if (count > 1) {
                         signal = true;
@@ -521,7 +526,8 @@ public class Tools {
         String datacheckSourcePath = PortalControl.portalWorkSpacePath + "config/datacheck/application-source.yml";
         String datacheckSinkPath = PortalControl.portalWorkSpacePath + "config/datacheck/application-sink.yml";
         String datacheckServicePath = PortalControl.portalWorkSpacePath + "config/datacheck/application.yml";
-        ArrayList<Integer> portList = Tools.getAvailablePorts(3, 1000);
+        int checkPort = StartPort.CHECK + PortalControl.portId * 10;
+        ArrayList<Integer> portList = Tools.getAvailablePorts(checkPort, 3, 1000);
         int sourcePort = portList.get(0);
         int sinkPort = portList.get(1);
         int servicePort = portList.get(2);
@@ -900,12 +906,12 @@ public class Tools {
     /**
      * Search available ports.
      *
-     * @param size  The size of available port list.
-     * @param total The total ports to search.
+     * @param tempPort the temp port
+     * @param size     The size of available port list.
+     * @param total    The total ports to search.
      * @return List of integer. The list of available port list.
      */
-    public static ArrayList<Integer> getAvailablePorts(int size, int total) {
-        int tempPort = PortalControl.startPort;
+    public static ArrayList<Integer> getAvailablePorts(int tempPort, int size, int total) {
         ArrayList<Integer> list = new ArrayList<>();
         int availablePortNumber = 0;
         for (int i = 0; i < total; i++) {
@@ -914,7 +920,6 @@ public class Tools {
                 availablePortNumber++;
                 LOGGER.info(String.valueOf(availablePortNumber));
                 if (availablePortNumber == size) {
-                    PortalControl.startPort = ++tempPort;
                     break;
                 }
             }
@@ -1580,5 +1585,103 @@ public class Tools {
         config += "/config";
         String[] cmdParts = new String[]{"curl", "-X", "PUT", "-H", "Content-Type: application/vnd.schemaregistry.v1+json", "--data", "{\"compatibility\": \"NONE\"}", config};
         RuntimeExecTools.executeOrderCurrentRuntime(cmdParts, 1000, log);
+    }
+
+    /**
+     * Stop exclusive software.
+     *
+     * @param methodName   the method name
+     * @param softwareName the software name
+     */
+    public static void stopExclusiveSoftware(String methodName, String softwareName) {
+        int pid = Tools.getCommandPid(Task.getTaskProcessMap().get(methodName));
+        if (pid != -1) {
+            RuntimeExecTools.executeOrder("kill -15 " + pid, 2000, PortalControl.portalWorkSpacePath + "logs/error.log");
+        }
+        for (RunningTaskThread runningTaskThread : Plan.getRunningTaskThreadsList()) {
+            if (runningTaskThread.getMethodName().equals(methodName)) {
+                LOGGER.info("Stop " + softwareName + ".");
+                break;
+            }
+        }
+    }
+
+    /**
+     * Stop public software.
+     *
+     * @param taskThreadName the task thread name
+     * @param executeFile    the execute file
+     * @param order          the order
+     * @param name           the name
+     */
+    public static void stopPublicSoftware(String taskThreadName, String executeFile, String order, String name) {
+        boolean fileExist = new File(executeFile).exists();
+        boolean useSoftWare = Tools.usePublicSoftware(taskThreadName);
+        if (!Tools.checkAnotherProcessExist("-Dpath=" + PortalControl.portalControlPath)) {
+            if (fileExist && useSoftWare) {
+                RuntimeExecTools.executeOrder(order, 3000, PortalControl.portalWorkSpacePath + "logs/error.log");
+                LOGGER.info("Stop " + name + ".");
+            } else if (fileExist) {
+                RuntimeExecTools.executeOrder(order, 3000, PortalControl.portalWorkSpacePath + "logs/error.log");
+            } else if (useSoftWare) {
+                LOGGER.info("File " + executeFile + " not exists.");
+            }
+        } else if (useSoftWare) {
+            LOGGER.info("Another portal is running.Wait for the lastest portal to stop " + name + ".");
+        }
+    }
+
+    /**
+     * Use public software boolean.
+     *
+     * @param taskThreadName the task thread name
+     * @return the boolean
+     */
+    public static boolean usePublicSoftware(String taskThreadName) {
+        boolean flag = false;
+        for (RunningTaskThread taskThread : Plan.getRunningTaskThreadsList()) {
+            if (taskThreadName.equals(taskThread.getMethodName())) {
+                flag = true;
+                break;
+            }
+        }
+        return flag;
+    }
+
+    /**
+     * Sets port id.
+     *
+     * @param name the name
+     * @return the port id
+     */
+    public static int setPortId(String name) {
+        int portId = -1;
+        try {
+            File pidFile = new File(name);
+            RandomAccessFile randomAccessFile = new RandomAccessFile(pidFile, "rw");
+            FileInputStream fileInputStream = new FileInputStream(pidFile);
+            FileChannel channel = randomAccessFile.getChannel();
+            FileLock lock = channel.tryLock();
+            if (lock != null) {
+                BufferedReader br = new BufferedReader(new InputStreamReader(fileInputStream));
+                String idString = br.readLine();
+                portId = idString == null ? 0 : Integer.parseInt(idString.trim());
+                br.close();
+                portId++;
+                BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(pidFile)));
+                bw.write(String.valueOf(portId));
+                bw.flush();
+                bw.close();
+                lock.release();
+                lock.close();
+            }
+            channel.close();
+            fileInputStream.close();
+            randomAccessFile.close();
+        } catch (Exception e) {
+            e.printStackTrace();
+            LOGGER.error("Error massage: Get lock failed.");
+        }
+        return portId;
     }
 }

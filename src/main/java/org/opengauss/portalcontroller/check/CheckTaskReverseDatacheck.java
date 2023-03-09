@@ -29,7 +29,7 @@ public class CheckTaskReverseDatacheck implements CheckTask {
         softwareArrayList.add(new Kafka());
         softwareArrayList.add(new Confluent());
         softwareArrayList.add(new Datacheck());
-        boolean flag = InstallMigrationTools.installMigrationTools(softwareArrayList,download);
+        boolean flag = InstallMigrationTools.installMigrationTools(softwareArrayList, download);
         return flag;
     }
 
@@ -39,7 +39,7 @@ public class CheckTaskReverseDatacheck implements CheckTask {
     @Override
     public boolean installAllPackages() {
         CheckTask checkTask = new CheckTaskReverseDatacheck();
-        boolean flag = InstallMigrationTools.installSingleMigrationTool(checkTask,MigrationParameters.Install.CHECK);
+        boolean flag = InstallMigrationTools.installSingleMigrationTool(checkTask, MigrationParameters.Install.CHECK);
         return flag;
     }
 
@@ -126,13 +126,13 @@ public class CheckTaskReverseDatacheck implements CheckTask {
         }
     }
 
-    public void uninstall(){
+    public void uninstall() {
         String errorPath = PortalControl.portalControlPath + "logs/error.log";
         ArrayList<String> filePaths = new ArrayList<>();
         filePaths.add(PortalControl.toolsConfigParametersTable.get(Debezium.PATH));
         filePaths.add(PortalControl.portalControlPath + "tmp/kafka-logs");
         filePaths.add(PortalControl.portalControlPath + "tmp/zookeeper");
         filePaths.add(PortalControl.toolsConfigParametersTable.get(Check.PATH));
-        InstallMigrationTools.removeSingleMigrationToolFiles(filePaths,errorPath);
+        InstallMigrationTools.removeSingleMigrationToolFiles(filePaths, errorPath);
     }
 }
