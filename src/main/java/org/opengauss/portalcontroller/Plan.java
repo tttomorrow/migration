@@ -255,11 +255,11 @@ public final class Plan {
             LOGGER.info("Stop plan.");
             Tools.closeAllProcess("--config default_" + workspaceId + " --");
             PortalControl.threadCheckProcess.exit = true;
+            stopAllTasks();
             Plan.runningTaskThreadsList.clear();
             Plan.runningTaskList.clear();
             Plan.currentTask = "";
             PortalControl.taskList.clear();
-            stopAllTasks();
             File portalFile = new File(portalWorkSpacePath + "portal-running-threads.txt");
             BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(portalFile)));
             bw.write("Plan status: runnable");
@@ -343,6 +343,9 @@ public final class Plan {
      * @return the boolean
      */
     public static boolean createWorkspace(String workspaceId) {
+        String portIdFile = portalControlPath + "portal.portId.lock";
+        Tools.createFile(portIdFile, true);
+        PortalControl.portId = Tools.setPortId(portIdFile) % 100;
         boolean flag = true;
         String path = portalControlPath + "workspace/" + workspaceId + "/";
         Tools.createFile(path, false);
@@ -387,8 +390,10 @@ public final class Plan {
      * Clean.
      */
     public static void clean() {
-        CheckTaskMysqlFullMigration checkTaskMysqlFullMigration = new CheckTaskMysqlFullMigration();
-        checkTaskMysqlFullMigration.cleanData(workspaceId);
+        if (PortalControl.taskList.contains(Command.Start.Mysql.FULL)) {
+            CheckTaskMysqlFullMigration checkTaskMysqlFullMigration = new CheckTaskMysqlFullMigration();
+            checkTaskMysqlFullMigration.cleanData(workspaceId);
+        }
     }
 
     /**

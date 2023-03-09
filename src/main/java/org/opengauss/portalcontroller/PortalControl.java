@@ -157,6 +157,8 @@ public class PortalControl {
      */
     public static int startPort = 10000;
 
+    public static int portId = 1;
+
     /**
      * The constant threadGetOrder.
      */
@@ -182,11 +184,6 @@ public class PortalControl {
      * @param args args
      */
     public static void main(String[] args) {
-        File file = new File(PortalControl.portalControlPath + "workspace");
-        if (file.exists() && file.isDirectory()) {
-            int workspaces = Objects.requireNonNull(file.listFiles()).length;
-            startPort += workspaces * 50;
-        }
         Tools.cleanInputOrder();
         initPlanList();
         initParametersRegexMap();
