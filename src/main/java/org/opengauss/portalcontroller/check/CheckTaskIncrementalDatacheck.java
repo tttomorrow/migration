@@ -5,7 +5,12 @@ import org.opengauss.portalcontroller.constant.Check;
 import org.opengauss.portalcontroller.constant.Command;
 import org.opengauss.portalcontroller.constant.Debezium;
 import org.opengauss.portalcontroller.constant.Method;
+import org.opengauss.portalcontroller.constant.MigrationParameters;
 import org.opengauss.portalcontroller.constant.Status;
+import org.opengauss.portalcontroller.software.Confluent;
+import org.opengauss.portalcontroller.software.Datacheck;
+import org.opengauss.portalcontroller.software.Kafka;
+import org.opengauss.portalcontroller.software.Software;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -15,14 +20,27 @@ import java.util.Hashtable;
 
 import static org.opengauss.portalcontroller.Plan.runningTaskList;
 
+/**
+ * The type Check task incremental datacheck.
+ */
 public class CheckTaskIncrementalDatacheck implements CheckTask {
     private static final Logger LOGGER = LoggerFactory.getLogger(CheckTaskIncrementalDatacheck.class);
     private String workspaceId = "";
 
+    /**
+     * Gets workspace id.
+     *
+     * @return the workspace id
+     */
     public String getWorkspaceId() {
         return workspaceId;
     }
 
+    /**
+     * Sets workspace id.
+     *
+     * @param workspaceId the workspace id
+     */
     public void setWorkspaceId(String workspaceId) {
         this.workspaceId = workspaceId;
     }
@@ -31,11 +49,20 @@ public class CheckTaskIncrementalDatacheck implements CheckTask {
      * Install datacheck package.
      */
     @Override
-    public void installAllPackages() {
-        Hashtable<String, String> hashtable = PortalControl.toolsConfigParametersTable;
-        Tools.installPackage(PortalControl.toolsConfigParametersTable.get(Debezium.Kafka.PATH) + "libs/kafka-streams-examples-3.2.3.jar", Debezium.PKG_PATH, Debezium.Kafka.PKG_NAME, hashtable.get(Debezium.PATH));
-        Tools.installPackage(PortalControl.toolsConfigParametersTable.get(Debezium.Confluent.PATH) + "etc/kafka/consumer.properties", Debezium.PKG_PATH, Debezium.Confluent.PKG_NAME, hashtable.get(Debezium.PATH));
-        Tools.installPackage(PortalControl.toolsConfigParametersTable.get(Check.PATH) + "config/log4j2.xml", Check.PKG_PATH, Check.PKG_NAME, hashtable.get(Check.INSTALL_PATH));
+    public boolean installAllPackages(boolean download) {
+        ArrayList<Software> softwareArrayList = new ArrayList<>();
+        softwareArrayList.add(new Kafka());
+        softwareArrayList.add(new Confluent());
+        softwareArrayList.add(new Datacheck());
+        boolean flag = InstallMigrationTools.installMigrationTools(softwareArrayList,download);
+        return flag;
+    }
+
+    @Override
+    public boolean installAllPackages() {
+        CheckTask checkTask = new CheckTaskIncrementalDatacheck();
+        boolean flag = InstallMigrationTools.installSingleMigrationTool(checkTask,MigrationParameters.Install.CHECK);
+        return flag;
     }
 
     /**
@@ -78,11 +105,15 @@ public class CheckTaskIncrementalDatacheck implements CheckTask {
         Task.startTaskMethod(Method.Run.CHECK_SOURCE, 5000);
         Task.startTaskMethod(Method.Run.CHECK_SINK, 5000);
         Task.startTaskMethod(Method.Run.CHECK, 5000);
-        LOGGER.info("Mysql incremental datacheck has started.");
         checkEnd();
     }
 
 
+    /**
+     * Check necessary process exist boolean.
+     *
+     * @return the boolean
+     */
     public boolean checkNecessaryProcessExist() {
         boolean flag = false;
         boolean flag1 = Tools.getCommandPid(Task.getTaskProcessMap().get(Method.Run.ZOOKEEPER)) != -1;
@@ -104,12 +135,24 @@ public class CheckTaskIncrementalDatacheck implements CheckTask {
             }
         }
         if (Plan.stopIncrementalMigration) {
-            PortalControl.status = Status.INCREMENTAL_MIGRATION_FINISHED;
+            if (PortalControl.status != Status.ERROR) {
+                PortalControl.status = Status.INCREMENTAL_MIGRATION_FINISHED;
+            }
             Task.stopTaskMethod(Method.Run.CHECK);
             Task.stopTaskMethod(Method.Run.CHECK_SINK);
             Task.stopTaskMethod(Method.Run.CHECK_SOURCE);
             Task.stopTaskMethod(Method.Run.CONNECT_SINK);
             Task.stopTaskMethod(Method.Run.CONNECT_SOURCE);
         }
+    }
+
+    public void uninstall(){
+        String errorPath = PortalControl.portalControlPath + "logs/error.log";
+        ArrayList<String> filePaths = new ArrayList<>();
+        filePaths.add(PortalControl.toolsConfigParametersTable.get(Debezium.PATH));
+        filePaths.add(PortalControl.portalControlPath + "tmp/kafka-logs");
+        filePaths.add(PortalControl.portalControlPath + "tmp/zookeeper");
+        filePaths.add(PortalControl.toolsConfigParametersTable.get(Check.PATH));
+        InstallMigrationTools.removeSingleMigrationToolFiles(filePaths,errorPath);
     }
 }

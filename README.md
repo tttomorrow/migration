@@ -21,7 +21,11 @@ Gitee 是 OSCHINA 推出的基于 Git 的代码托管平台（同时支持 SVN�
            	application-source.yml
            	application-sink.yml
            	application.yml
+           	log4j2.xml
+           	log4j2source.xml
+           	log4j2sink.xml
            debezium/
+               connect-avro-standalone.properties
            	mysql-sink.properties
            	mysql-source.properties
            	opengauss-sink.properties
@@ -30,7 +34,7 @@ Gitee 是 OSCHINA 推出的基于 Git 的代码托管平台（同时支持 SVN�
    		portal.log 
    	pkg/           
            chameleon/
-           	chameleon-3.1.0-py3-none-any.whl
+           	chameleon-3.1.1-py3-none-any.whl
            datacheck/
            	openGauss-datachecker-performance-3.1.0.tar.gz
            debezium/
@@ -53,15 +57,90 @@ Gitee 是 OSCHINA 推出的基于 Git 的代码托管平台（同时支持 SVN�
        README.md
    ```
 
-#### 安装及使用教程
+#### 安装教程
 
-假设工作目录为/opt/portal，工作目录可根据实际需要更换。
+工作目录为portal的安装目录，默认为/ops/portal，工作目录可根据实际需要更换。
 
-下载源代码，将源代码中的portal文件夹复制到/opt下。然后配置toolspath.properties文件指定文件安装及所在位置。
+##### 安装portal
 
-使用控制台进行操作的情况下：
+1.下载源代码，将源代码中的portal文件夹复制到/ops下。
 
-1. 使用java -jar -Dpath=/opt/portal/ -jar portalControl-1.0-SNAPSHOT-exec.jar启动portal，输入install mysql migration tools安装全部迁移工具
+编译源代码得到jar包portalControl-1.0-SNAPSHOT-exec.jar，并将jar包放在/ops/portal下。
+
+java版本：open JDK11及以上
+
+maven版本：3.8.3以上
+
+##### 启动方式
+
+使用java -jar -Dpath=/ops/portal/ -Dskip=true -Dorder=指令 -jar portalControl-1.0-SNAPSHOT-exec.jar启动portal，通过指令使用portal的各项功能。
+
+其中path的值为工作目录，如果这里输入错误会导致portal报错，并且要以/结尾，指令为数个单词之间加空格，比如"start mysql full migration"这种形式，但使用order参数传入时，需要把空格换成下划线。
+
+##### 安装迁移工具
+
+在/ops/portal/config/toolspath.properties下修改工具安装路径：
+
+| 参数名称                     | 参数说明                                                     |
+| ---------------------------- | ------------------------------------------------------------ |
+| chameleon.venv.path          | 变色龙虚拟环境所在位置                                       |
+| chameleon.pkg.path           | 变色龙的安装包所在路径                                       |
+| chameleon.pkg.name           | 变色龙的安装包名                                             |
+| chameleon.pkg.url            | 变色龙的安装包下载链接                                       |
+| debezium.path                | debezium+kafka所在路径（默认kafka、confluent、connector都安装在该路径下） |
+| kafka.path                   | kafka所在路径                                                |
+| confluent.path               | confluent所在路径                                            |
+| connector.path               | connector所在路径                                            |
+| debezium.pkg.path            | debezium+kafka安装包所在路径（默认kafka、confluent、connector安装包都在该路径下） |
+| kafka.pkg.name               | kafka安装包名                                                |
+| kafka.pkg.url                | kafka安装包下载链接                                          |
+| confluent.pkg.name           | confluent安装包名                                            |
+| confluent.pkg.url            | confluent安装包下载链接                                      |
+| connector.mysql.pkg.name     | mysql connector安装包名                                      |
+| connector.mysql.pkg.url      | mysql connector安装包下载链接                                |
+| connector.opengauss.pkg.name | opengauss connector安装包名                                  |
+| connector.opengauss.pkg.url  | opengauss connector安装包下载链接                            |
+| datacheck.install.path       | datacheck安装路径                                            |
+| datacheck.path               | datacheck所在路径                                            |
+| datacheck.pkg.path           | datacheck安装包所在路径                                      |
+| datacheck.pkg.name           | datacheck安装包名                                            |
+| datacheck.pkg.url            | datachec安装包下载链接                                       |
+
+工具的安装支持离线安装和在线安装，在线安装将会从指定链接下载安装包到安装包指定位置，离线不会。如果输入命令时不指定安装方式，那么portal会根据/ops/portal/config/migrationConfig.properties下的参数决定安装方式：
+
+| 参数名称                                              | 参数说明                                              |
+| ----------------------------------------------------- | ----------------------------------------------------- |
+| default.install.mysql.full.migration.tools.way        | 全量迁移工具默认安装方式：offline为离线，online为在线 |
+| default.install.mysql.incremental.migration.tools.way | 增量迁移工具默认安装方式：offline为离线，online为在线 |
+| default.install.mysql.datacheck.tools.way             | 数据校验工具默认安装方式：offline为离线，online为在线 |
+| default.install.mysql.reverse.migration.tools.way     | 反向迁移工具默认安装方式：offline为离线，online为在线 |
+
+安装指令：
+
+| 指令名称                                          | 指令说明                                          |
+| ------------------------------------------------- | ------------------------------------------------- |
+| install mysql full migration tools online         | 在线安装mysql全量迁移工具                         |
+| install mysql full migration tools offline        | 离线安装mysql全量迁移工具                         |
+| install mysql full migration tools                | 安装mysql全量迁移工具（安装方式由配置文件指定）   |
+| install mysql incremental migration tools online  | 在线安装mysql增量迁移工具                         |
+| install mysql incremental migration tools offline | 离线安装mysql增量迁移工具                         |
+| install mysql incremental migration tools         | 安装mysql增量迁移工具（安装方式由配置文件指定）   |
+| install mysql datacheck tools online              | 在线安装mysql数据校验工具                         |
+| install mysql datacheck tools offline             | 离线安装mysql数据校验工具                         |
+| install mysql datacheck tools                     | 安装mysql数据校验工具（安装方式由配置文件指定）   |
+| install mysql all migration tools                 | 安装mysql迁移工具（各工具安装方式由配置文件指定） |
+
+##### 配置参数
+
+
+
+##### 执行迁移计划
+
+portal支持启动多个进程执行不同的迁移计划，启动迁移计划时需要添加参数-Dworkspace.id="ID"，这样不同的迁移计划可以根据不同的workspaceID进行区分，如果不添加的话，workspaceID默认值为1。在执行计划
+
+用控制台进行操作的情况下：
+
+1. 使用java -jar -Dpath=/ops/portal/ -jar portalControl-1.0-SNAPSHOT-exec.jar启动portal，输入install mysql migration tools安装全部迁移工具
 
 2. 在currentPlan中输入指令制定计划，或者使用默认计划plan1,plan2,plan3，输入show plans查看默认计划。
 
@@ -89,17 +168,7 @@ Gitee 是 OSCHINA 推出的基于 Git 的代码托管平台（同时支持 SVN�
 
    在/opt/portal/config/input文件中写入exit退出计划。
 
-##### 启动方式
 
-使用java -jar -Dpath=/opt/portal/ -jar portalControl-1.0-SNAPSHOT-exec.jar启动portal
-
-其中-Dpath=/opt/portal/是必加项，path的值是portal所在位置，如果不加会导致找不到配置文件，无法正常运行，并且要以/结尾。
-
-可以在参数中添加-Dskip=true，此时不使用控制台进行输入输出，如果添加此项，可以通过向/opt/portal/config/input文件中添加命令对portal进行操作，或者添加其他参数，比如数据库类型，迁移类型，是否校验等等，portal将接收这些参数拼接成对应指令，也可以使用-Dorder=start_mysql_full_migration直接传指令。指令为数个单词之间加空格，比如"start mysql full migration"这种形式，但使用order参数传入时，需要把空格换成下划线。
-
-如果不添加-Dskip=true，则使用控制台进行输入输出，除了工作目录之外的参数全部无效。
-
-进入portal界面后可以使用install相关命令安装工具，使用show information查看并修改需要迁移的数据库的用户名、密码、ip、port、数据库名等，然后可以启动迁移计划。
 
 ##### 指令列表
 

@@ -14,15 +14,23 @@
  */
 package org.opengauss.portalcontroller;
 
+import org.opengauss.portalcontroller.check.CheckTask;
+import org.opengauss.portalcontroller.check.CheckTaskFullDatacheck;
+import org.opengauss.portalcontroller.check.CheckTaskIncrementalDatacheck;
+import org.opengauss.portalcontroller.check.CheckTaskIncrementalMigration;
+import org.opengauss.portalcontroller.check.CheckTaskMysqlFullMigration;
+import org.opengauss.portalcontroller.check.CheckTaskReverseMigration;
 import org.opengauss.portalcontroller.constant.Chameleon;
 import org.opengauss.portalcontroller.constant.Check;
 import org.opengauss.portalcontroller.constant.Command;
 import org.opengauss.portalcontroller.constant.Debezium;
+import org.opengauss.portalcontroller.constant.MigrationParameters;
 import org.opengauss.portalcontroller.constant.Mysql;
 import org.opengauss.portalcontroller.constant.Offset;
 import org.opengauss.portalcontroller.constant.Opengauss;
 import org.opengauss.portalcontroller.constant.Regex;
 import org.opengauss.portalcontroller.constant.Status;
+import org.opengauss.portalcontroller.software.Software;
 import org.opengauss.portalcontroller.status.ThreadStatusController;
 import org.slf4j.LoggerFactory;
 
@@ -149,6 +157,8 @@ public class PortalControl {
      */
     public static int startPort = 10000;
 
+    public static int portId = 1;
+
     /**
      * The constant threadGetOrder.
      */
@@ -158,6 +168,15 @@ public class PortalControl {
      */
     public static ThreadStatusController threadStatusController = new ThreadStatusController();
 
+    /**
+     * The constant errorMsg.
+     */
+    public static String errorMsg = "";
+
+    /**
+     * The constant softwareList.
+     */
+    public static ArrayList<Software> softwareList = new ArrayList<>();
 
     /**
      * Main method.The first parameter is path of portal control.
@@ -165,11 +184,6 @@ public class PortalControl {
      * @param args args
      */
     public static void main(String[] args) {
-        File file = new File(PortalControl.portalControlPath + "workspace");
-        if (file.exists() && file.isDirectory()) {
-            int workspaces = Objects.requireNonNull(file.listFiles()).length;
-            startPort += workspaces * 50;
-        }
         Tools.cleanInputOrder();
         initPlanList();
         initParametersRegexMap();
@@ -207,7 +221,7 @@ public class PortalControl {
                     EventHandler eventHandler = commandHandlerHashMap.get(newOrder);
                     eventHandler.handle(newOrder);
                 } else {
-                    LOGGER.warn("Invalid command.Please input help to get valid command.");
+                    LOGGER.error("Invalid command.Please input help to get valid command.");
                 }
             } else {
                 String action = commandLineParameterStringMap.get(Command.Parameters.ACTION);
@@ -225,7 +239,7 @@ public class PortalControl {
                     EventHandler eventHandler = commandHandlerHashMap.get(command);
                     eventHandler.handle(command);
                 } else {
-                    LOGGER.warn("Invalid command.Please input help to get valid command.");
+                    LOGGER.error("Invalid command.Please input help to get valid command.");
                 }
             }
         }
@@ -322,35 +336,8 @@ public class PortalControl {
         PortalControl.toolsConfigParametersTable.clear();
         PortalControl.toolsMigrationParametersTable.clear();
         PortalControl.initParametersRegexMap();
-        Properties pps = new Properties();
-        try {
-            pps.load(new FileInputStream(PortalControl.toolsConfigPath));
-        } catch (IOException e) {
-            LOGGER.error("IO exception occurred in loading the toolspath.properties.");
-        }
-        for (Object key : pps.keySet()) {
-            if (commandLineParameterStringMap.containsKey(key)) {
-                PortalControl.toolsConfigParametersTable.put(String.valueOf(key), commandLineParameterStringMap.get(key));
-            } else {
-                PortalControl.toolsConfigParametersTable.put(String.valueOf(key), String.valueOf(pps.getProperty(String.valueOf(key))));
-            }
-        }
-        pps.clear();
-        try {
-            pps.load(new FileInputStream(PortalControl.migrationConfigPath));
-        } catch (IOException e) {
-            LOGGER.error("IO exception occurred in loading the migrationConfig.properties.");
-        }
-        for (Object key : pps.keySet()) {
-            if (commandLineParameterStringMap.containsKey(key)) {
-                PortalControl.toolsMigrationParametersTable.put(String.valueOf(key), commandLineParameterStringMap.get(key));
-            } else {
-                PortalControl.toolsMigrationParametersTable.put(String.valueOf(key), String.valueOf(pps.getProperty(String.valueOf(key))));
-            }
-        }
-        pps.clear();
-        Tools.changePropertiesParameters(PortalControl.toolsConfigParametersTable, PortalControl.portalWorkSpacePath + "config/toolspath.properties");
-        Tools.changePropertiesParameters(PortalControl.toolsMigrationParametersTable, PortalControl.portalWorkSpacePath + "config/migrationConfig.properties");
+        Tools.getParameterCommandLineFirst(PortalControl.toolsConfigParametersTable, PortalControl.portalWorkSpacePath + "config/toolspath.properties");
+        Tools.getParameterCommandLineFirst(PortalControl.toolsMigrationParametersTable, PortalControl.portalWorkSpacePath + "config/migrationConfig.properties");
     }
 
     /**
@@ -443,7 +430,11 @@ public class PortalControl {
         Set<String> parametersSet = new TreeSet<String>((o1, o2) -> (o1.compareTo(o2)));
         parametersSet.addAll(toolsMigrationParametersTable.keySet());
         for (String key : parametersSet) {
-            LOGGER.info(key + ":" + toolsMigrationParametersTable.get(key));
+            if (key.contains("password")) {
+                LOGGER.info(key + ":*****");
+            } else {
+                LOGGER.info(key + ":" + toolsMigrationParametersTable.get(key));
+            }
         }
         if (!PortalControl.noinput) {
             LOGGER.info("Please sure the migration parameters are right,or you can input change to change migration parameters.");
@@ -697,17 +688,6 @@ public class PortalControl {
         setCommandLineParameters(Command.Parameters.CHECK, "");
         setCommandLineParameters(Command.Parameters.ORDER, "");
         setCommandLineParameters(Command.Parameters.ID, "1");
-        setCommandLineParameters(Mysql.DATABASE_HOST, "127.0.0.1");
-        setCommandLineParameters(Mysql.USER, "test");
-        setCommandLineParameters(Mysql.DATABASE_NAME, "test");
-        setCommandLineParameters(Mysql.PASSWORD, "123456");
-        setCommandLineParameters(Mysql.DATABASE_PORT, "3306");
-        setCommandLineParameters(Opengauss.DATABASE_HOST, "127.0.0.1");
-        setCommandLineParameters(Opengauss.USER, "test");
-        setCommandLineParameters(Opengauss.PASSWORD, "123456");
-        setCommandLineParameters(Opengauss.DATABASE_SCHEMA, "test");
-        setCommandLineParameters(Opengauss.DATABASE_NAME, "postgres");
-        setCommandLineParameters(Opengauss.DATABASE_PORT, "5432");
     }
 
     /**
@@ -728,23 +708,39 @@ public class PortalControl {
      * Init command handler hashmap.
      */
     public static void initCommandHandlerHashMap() {
-        commandHandlerHashMap.put(Command.Install.Mysql.FullMigration.ONLINE, (event) -> InstallMigrationTools.installMysqlFullMigrationToolsOnline());
-        commandHandlerHashMap.put(Command.Install.Mysql.FullMigration.OFFLINE, (event) -> InstallMigrationTools.installMysqlFullMigrationToolsOffline());
-        commandHandlerHashMap.put(Command.Install.Mysql.FullMigration.DEFAULT, (event) -> InstallMigrationTools.installMysqlFullMigrationTools());
-        commandHandlerHashMap.put(Command.Install.Mysql.IncrementalMigration.ONLINE, (event) -> InstallMigrationTools.installIncrementalMigrationToolsOnline());
-        commandHandlerHashMap.put(Command.Install.Mysql.IncrementalMigration.OFFLINE, (event) -> InstallMigrationTools.installIncrementalMigrationToolsOffline());
-        commandHandlerHashMap.put(Command.Install.Mysql.IncrementalMigration.DEFAULT, (event) -> InstallMigrationTools.installIncrementMigrationTools());
-        commandHandlerHashMap.put(Command.Install.Mysql.ReverseMigration.ONLINE, (event) -> InstallMigrationTools.installReverseMigrationToolsOnline());
-        commandHandlerHashMap.put(Command.Install.Mysql.ReverseMigration.OFFLINE, (event) -> InstallMigrationTools.installReverseMigrationToolsOffline());
-        commandHandlerHashMap.put(Command.Install.Mysql.ReverseMigration.DEFAULT, (event) -> InstallMigrationTools.installReverseMigrationTools());
-        commandHandlerHashMap.put(Command.Install.Mysql.Check.ONLINE, (event) -> InstallMigrationTools.installDatacheckToolsOnline());
-        commandHandlerHashMap.put(Command.Install.Mysql.Check.OFFLINE, (event) -> InstallMigrationTools.installDatacheckToolsOffline());
-        commandHandlerHashMap.put(Command.Install.Mysql.Check.DEFAULT, (event) -> InstallMigrationTools.installDatacheckTools());
-        commandHandlerHashMap.put(Command.Install.Mysql.All.DEFAULT, (event) -> InstallMigrationTools.installMigrationTools());
-        commandHandlerHashMap.put(Command.Uninstall.Mysql.FULL, (event) -> InstallMigrationTools.uninstallMysqlFullMigrationTools());
-        commandHandlerHashMap.put(Command.Uninstall.Mysql.INCREMENTAL, (event) -> InstallMigrationTools.uninstallIncrementalMigrationTools());
-        commandHandlerHashMap.put(Command.Uninstall.Mysql.CHECK, (event) -> InstallMigrationTools.uninstallDatacheckTools());
-        commandHandlerHashMap.put(Command.Uninstall.Mysql.REVERSE, (event) -> InstallMigrationTools.uninstallReverseMigrationTools());
+        ArrayList<CheckTask> checkTasks = new ArrayList<>();
+        ArrayList<String> installWays = new ArrayList<>();
+        CheckTask checkTaskMysqlFullMigration = new CheckTaskMysqlFullMigration();
+        checkTasks.add(checkTaskMysqlFullMigration);
+        installWays.add(MigrationParameters.Install.FULL_MIGRATION);
+        CheckTask checkTaskMysqlIncrementalMigration = new CheckTaskIncrementalMigration();
+        checkTasks.add(checkTaskMysqlIncrementalMigration);
+        installWays.add(MigrationParameters.Install.INCREMENTAL_MIGRATION);
+        CheckTask checkTaskMysqlReverseMigration = new CheckTaskReverseMigration();
+        checkTasks.add(checkTaskMysqlReverseMigration);
+        installWays.add(MigrationParameters.Install.REVERSE_MIGRATION);
+        CheckTask checkTaskDatacheck = new CheckTaskIncrementalDatacheck();
+        checkTasks.add(checkTaskDatacheck);
+        installWays.add(MigrationParameters.Install.CHECK);
+        commandHandlerHashMap.put(Command.Install.Mysql.FullMigration.ONLINE, (event) -> checkTaskMysqlFullMigration.installAllPackages(true));
+        commandHandlerHashMap.put(Command.Install.Mysql.FullMigration.OFFLINE, (event) -> checkTaskMysqlFullMigration.installAllPackages(false));
+        commandHandlerHashMap.put(Command.Install.Mysql.FullMigration.DEFAULT, (event) -> checkTaskMysqlFullMigration.installAllPackages());
+        commandHandlerHashMap.put(Command.Install.Mysql.IncrementalMigration.ONLINE, (event) -> checkTaskMysqlIncrementalMigration.installAllPackages(true));
+        commandHandlerHashMap.put(Command.Install.Mysql.IncrementalMigration.OFFLINE, (event) -> checkTaskMysqlIncrementalMigration.installAllPackages(false));
+        commandHandlerHashMap.put(Command.Install.Mysql.IncrementalMigration.DEFAULT, (event) -> checkTaskMysqlIncrementalMigration.installAllPackages());
+        commandHandlerHashMap.put(Command.Install.Mysql.ReverseMigration.ONLINE, (event) -> checkTaskMysqlReverseMigration.installAllPackages(true));
+        commandHandlerHashMap.put(Command.Install.Mysql.ReverseMigration.OFFLINE, (event) -> checkTaskMysqlReverseMigration.installAllPackages(false));
+        commandHandlerHashMap.put(Command.Install.Mysql.ReverseMigration.DEFAULT, (event) -> checkTaskMysqlReverseMigration.installAllPackages());
+        commandHandlerHashMap.put(Command.Install.Mysql.Check.ONLINE, (event) -> checkTaskDatacheck.installAllPackages(true));
+        commandHandlerHashMap.put(Command.Install.Mysql.Check.OFFLINE, (event) -> checkTaskDatacheck.installAllPackages(false));
+        commandHandlerHashMap.put(Command.Install.Mysql.Check.DEFAULT, (event) -> checkTaskDatacheck.installAllPackages());
+        commandHandlerHashMap.put(Command.Install.Mysql.All.DEFAULT, (event) -> InstallMigrationTools.installAllMigrationTools(checkTasks));
+        commandHandlerHashMap.put(Command.Install.Mysql.All.ONLINE, (event) -> InstallMigrationTools.installAllMigrationTools(true, checkTasks));
+        commandHandlerHashMap.put(Command.Install.Mysql.All.OFFLINE, (event) -> InstallMigrationTools.installAllMigrationTools(false, checkTasks));
+        commandHandlerHashMap.put(Command.Uninstall.Mysql.FULL, (event) -> checkTaskMysqlFullMigration.uninstall());
+        commandHandlerHashMap.put(Command.Uninstall.Mysql.INCREMENTAL, (event) -> checkTaskMysqlIncrementalMigration.uninstall());
+        commandHandlerHashMap.put(Command.Uninstall.Mysql.CHECK, (event) -> checkTaskDatacheck.uninstall());
+        commandHandlerHashMap.put(Command.Uninstall.Mysql.REVERSE, (event) -> checkTaskMysqlReverseMigration.uninstall());
         commandHandlerHashMap.put(Command.Uninstall.Mysql.ALL, (event) -> InstallMigrationTools.uninstallMigrationTools());
         commandHandlerHashMap.put(Command.Start.Mysql.FULL, (event) -> startSingleTaskPlan(Command.Start.Mysql.FULL));
         commandHandlerHashMap.put(Command.Start.Mysql.INCREMENTAL, (event) -> startSingleTaskPlan(Command.Start.Mysql.INCREMENTAL));
@@ -786,6 +782,8 @@ public class PortalControl {
         parametersRegexMap.put(Debezium.Confluent.PKG_NAME, Regex.PKG_NAME);
         parametersRegexMap.put(Debezium.Confluent.PKG_URL, Regex.URL);
         parametersRegexMap.put(Debezium.Connector.PATH, Regex.FOLDER_PATH);
+        parametersRegexMap.put(Debezium.Connector.MYSQL_PATH, Regex.FOLDER_PATH);
+        parametersRegexMap.put(Debezium.Connector.OPENGAUSS_PATH, Regex.FOLDER_PATH);
         parametersRegexMap.put(Debezium.Connector.MYSQL_PKG_NAME, Regex.PKG_NAME);
         parametersRegexMap.put(Debezium.Connector.MYSQL_PKG_URL, Regex.URL);
         parametersRegexMap.put(Debezium.Connector.OPENGAUSS_PKG_NAME, Regex.PKG_NAME);

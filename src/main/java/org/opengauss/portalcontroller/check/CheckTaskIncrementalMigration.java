@@ -3,29 +3,42 @@ package org.opengauss.portalcontroller.check;
 import org.opengauss.portalcontroller.*;
 import org.opengauss.portalcontroller.constant.Debezium;
 import org.opengauss.portalcontroller.constant.Method;
+import org.opengauss.portalcontroller.constant.MigrationParameters;
+import org.opengauss.portalcontroller.constant.StartPort;
 import org.opengauss.portalcontroller.constant.Status;
+import org.opengauss.portalcontroller.software.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.File;
+import java.util.ArrayList;
 import java.util.Hashtable;
 
 import static org.opengauss.portalcontroller.PortalControl.portalWorkSpacePath;
 
+/**
+ * The type Check task incremental migration.
+ */
 public class CheckTaskIncrementalMigration implements CheckTask {
     private static final Logger LOGGER = LoggerFactory.getLogger(CheckTaskIncrementalMigration.class);
+
+    @Override
+    public boolean installAllPackages(boolean download) {
+        ArrayList<Software> softwareArrayList = new ArrayList<>();
+        softwareArrayList.add(new Kafka());
+        softwareArrayList.add(new Confluent());
+        softwareArrayList.add(new ConnectorMysql());
+        boolean flag = InstallMigrationTools.installMigrationTools(softwareArrayList, download);
+        return flag;
+    }
 
     /**
      * Install incremental migration tools package.
      */
     @Override
-    public void installAllPackages() {
-        Hashtable<String, String> hashtable = PortalControl.toolsConfigParametersTable;
-        String debeziumPath = hashtable.get(Debezium.PATH);
-        String connectorPath = hashtable.get(Debezium.Connector.PATH);
-        Tools.installPackage(PortalControl.toolsConfigParametersTable.get(Debezium.Kafka.PATH) + "libs/kafka-streams-examples-3.2.3.jar", Debezium.PKG_PATH, Debezium.Kafka.PKG_NAME, debeziumPath);
-        Tools.installPackage(PortalControl.toolsConfigParametersTable.get(Debezium.Confluent.PATH) + "etc/kafka/consumer.properties", Debezium.PKG_PATH, Debezium.Confluent.PKG_NAME, debeziumPath);
-        Tools.installPackage(PortalControl.toolsConfigParametersTable.get(Debezium.Connector.PATH) + "debezium-connector-mysql/debezium-connector-mysql-1.8.1.Final.jar", Debezium.PKG_PATH, Debezium.Connector.MYSQL_PKG_NAME, connectorPath);
+    public boolean installAllPackages() {
+        CheckTask checkTask = new CheckTaskIncrementalMigration();
+        boolean flag = InstallMigrationTools.installSingleMigrationTool(checkTask, MigrationParameters.Install.INCREMENTAL_MIGRATION);
+        return flag;
     }
 
     /**
@@ -63,7 +76,7 @@ public class CheckTaskIncrementalMigration implements CheckTask {
 
     @Override
     public void prepareWork(String workspaceId) {
-        Tools.changeIncrementalMigrationParameters(PortalControl.toolsMigrationParametersTable, workspaceId);
+        Tools.changeIncrementalMigrationParameters(PortalControl.toolsMigrationParametersTable);
         changeParameters(workspaceId);
         if (!checkNecessaryProcessExist()) {
             Task.startTaskMethod(Method.Run.ZOOKEEPER, 8000);
@@ -74,25 +87,31 @@ public class CheckTaskIncrementalMigration implements CheckTask {
             LOGGER.error("Another connector is running.Cannot run incremental migration whose workspace id is " + workspaceId + " .");
             return;
         }
-        Tools.findOffset(workspaceId);
+        Tools.findOffset();
         String confluentPath = PortalControl.toolsConfigParametersTable.get(Debezium.Confluent.PATH);
         Tools.changeConnectXmlFile(workspaceId, confluentPath + "etc/kafka/connect-log4j.properties");
         String standaloneSourcePath = PortalControl.portalWorkSpacePath + "config/debezium/connect-avro-standalone-source.properties";
-        int port = Tools.getAvailablePorts(1, 1000).get(0);
+        int sourcePort = StartPort.REST_MYSQL_SOURCE + PortalControl.portId * 10;
+        int port = Tools.getAvailablePorts(sourcePort, 1, 1000).get(0);
         Tools.changeSinglePropertiesParameter("rest.port", String.valueOf(port), standaloneSourcePath);
         Task.startTaskMethod(Method.Run.CONNECT_SOURCE, 8000);
     }
 
     @Override
     public void start(String workspaceId) {
-        PortalControl.status = Status.START_INCREMENTAL_MIGRATION;
+        if (PortalControl.status != Status.ERROR) {
+            PortalControl.status = Status.START_INCREMENTAL_MIGRATION;
+        }
         String standaloneSinkFilePath = PortalControl.portalWorkSpacePath + "config/debezium/connect-avro-standalone-sink.properties";
         String confluentPath = PortalControl.toolsConfigParametersTable.get(Debezium.Confluent.PATH);
         Tools.changeConnectXmlFile(workspaceId, confluentPath + "etc/kafka/connect-log4j.properties");
-        int port = Tools.getAvailablePorts(1, 1000).get(0);
+        int sinkPort = StartPort.REST_MYSQL_SINK + PortalControl.portId * 10;
+        int port = Tools.getAvailablePorts(sinkPort, 1, 1000).get(0);
         Tools.changeSinglePropertiesParameter("rest.port", String.valueOf(port), standaloneSinkFilePath);
         Task.startTaskMethod(Method.Run.CONNECT_SINK, 8000);
-        PortalControl.status = Status.RUNNING_INCREMENTAL_MIGRATION;
+        if (PortalControl.status != Status.ERROR) {
+            PortalControl.status = Status.RUNNING_INCREMENTAL_MIGRATION;
+        }
         checkEnd();
     }
 
@@ -108,13 +127,20 @@ public class CheckTaskIncrementalMigration implements CheckTask {
         }
         if (Plan.stopIncrementalMigration) {
             Task task = new Task();
-            PortalControl.status = Status.INCREMENTAL_MIGRATION_FINISHED;
+            if (PortalControl.status != Status.ERROR) {
+                PortalControl.status = Status.INCREMENTAL_MIGRATION_FINISHED;
+            }
             task.stopTaskMethod(Method.Run.CONNECT_SINK);
             task.stopTaskMethod(Method.Run.CONNECT_SOURCE);
             LOGGER.info("Incremental migration stopped.");
         }
     }
 
+    /**
+     * Check another connect exists boolean.
+     *
+     * @return the boolean
+     */
     public boolean checkAnotherConnectExists() {
         boolean flag = false;
         boolean flag1 = Tools.getCommandPid(Task.getTaskProcessMap().get(Method.Run.REVERSE_CONNECT_SOURCE)) != -1;
@@ -126,6 +152,11 @@ public class CheckTaskIncrementalMigration implements CheckTask {
     }
 
 
+    /**
+     * Check necessary process exist boolean.
+     *
+     * @return the boolean
+     */
     public boolean checkNecessaryProcessExist() {
         boolean flag = false;
         boolean flag1 = Tools.getCommandPid(Task.getTaskProcessMap().get(Method.Run.ZOOKEEPER)) != -1;
@@ -133,5 +164,14 @@ public class CheckTaskIncrementalMigration implements CheckTask {
         boolean flag3 = Tools.getCommandPid(Task.getTaskProcessMap().get(Method.Run.REGISTRY)) != -1;
         flag = flag1 && flag2 && flag3;
         return flag;
+    }
+
+    public void uninstall() {
+        String errorPath = PortalControl.portalControlPath + "logs/error.log";
+        ArrayList<String> filePaths = new ArrayList<>();
+        filePaths.add(PortalControl.toolsConfigParametersTable.get(Debezium.PATH));
+        filePaths.add(PortalControl.portalControlPath + "tmp/kafka-logs");
+        filePaths.add(PortalControl.portalControlPath + "tmp/zookeeper");
+        InstallMigrationTools.removeSingleMigrationToolFiles(filePaths, errorPath);
     }
 }

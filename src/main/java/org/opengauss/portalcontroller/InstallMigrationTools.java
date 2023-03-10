@@ -15,16 +15,16 @@
 package org.opengauss.portalcontroller;
 
 import org.opengauss.portalcontroller.check.CheckTask;
-import org.opengauss.portalcontroller.check.CheckTaskMysqlFullMigration;
-import org.opengauss.portalcontroller.check.CheckTaskFullDatacheck;
+import org.opengauss.portalcontroller.check.CheckTaskIncrementalDatacheck;
 import org.opengauss.portalcontroller.check.CheckTaskIncrementalMigration;
-import org.opengauss.portalcontroller.check.CheckTaskReverseMigration;
-import org.opengauss.portalcontroller.constant.Chameleon;
-import org.opengauss.portalcontroller.constant.Check;
-import org.opengauss.portalcontroller.constant.Debezium;
-import org.opengauss.portalcontroller.constant.MigrationParameters;
+import org.opengauss.portalcontroller.check.CheckTaskMysqlFullMigration;
+import org.opengauss.portalcontroller.constant.*;
+import org.opengauss.portalcontroller.software.Software;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.ArrayList;
+import java.util.Hashtable;
 
 /**
  * Install migration tools.
@@ -37,190 +37,126 @@ public class InstallMigrationTools {
     private static final Logger LOGGER = LoggerFactory.getLogger(InstallMigrationTools.class);
 
     /**
-     * Install mysql full migration tools online.
-     */
-    public static void installMysqlFullMigrationToolsOnline() {
-        RuntimeExecTools.download(Chameleon.PKG_URL, Chameleon.PKG_PATH);
-        InstallMigrationTools.installMysqlFullMigrationToolsOffline();
-    }
-
-    /**
-     * Install mysql full migration tools offline.
+     * Install migration tools boolean.
      *
+     * @param softwareArrayList the software array list
+     * @param download          the download
      * @return the boolean
      */
-    public static boolean installMysqlFullMigrationToolsOffline() {
+    public static boolean installMigrationTools(ArrayList<Software> softwareArrayList, boolean download) {
         boolean flag = true;
-        CheckTaskMysqlFullMigration checkTask = new CheckTaskMysqlFullMigration();
-        checkTask.installAllPackages();
-        LOGGER.info("Install full migration tools finished.");
+        for (Software software : softwareArrayList) {
+            flag = InstallMigrationTools.installSingleMigrationTool(software, download);
+            if (!flag) {
+                break;
+            }
+        }
         return flag;
     }
 
     /**
-     * Install increment migration tools online.
+     * Install single migration tool boolean.
+     *
+     * @param software the software
+     * @param download the download
+     * @return the boolean
      */
-    public static void installIncrementalMigrationToolsOnline() {
-        RuntimeExecTools.download(Debezium.Kafka.PKG_URL, Debezium.PKG_PATH);
-        RuntimeExecTools.download(Debezium.Confluent.PKG_URL, Debezium.PKG_PATH);
-        RuntimeExecTools.download(Debezium.Connector.MYSQL_PKG_URL, Debezium.PKG_PATH);
-        RuntimeExecTools.download(Debezium.Connector.OPENGAUSS_PKG_URL, Debezium.PKG_PATH);
-        InstallMigrationTools.installIncrementalMigrationToolsOffline();
+    public static boolean installSingleMigrationTool(Software software, boolean download) {
+        boolean flag = true;
+        ArrayList<String> criticalFileList = software.initCriticalFileList();
+        Hashtable<String, String> initParameterHashtable = software.initParameterHashtable();
+        String installPath = initParameterHashtable.get(Parameter.INSTALL_PATH);
+        String path = initParameterHashtable.get(Parameter.PATH);
+        String pkgName = initParameterHashtable.get(Parameter.PKG_NAME);
+        String pkgUrl = initParameterHashtable.get(Parameter.PKG_URL);
+        String pkgPath = initParameterHashtable.get(Parameter.PKG_PATH);
+        if (download) {
+            flag = RuntimeExecTools.download(pkgUrl, pkgPath);
+            Tools.outputResult(flag,"download " + pkgUrl);
+        }
+        flag = Tools.installPackage(criticalFileList, pkgPath, pkgName, PortalControl.toolsConfigParametersTable.get(installPath),path);
+        Tools.outputResult(flag,"install " + PortalControl.toolsConfigParametersTable.get(pkgName));
+        return flag;
     }
 
     /**
-     * Install increment migration tools offline.
+     * Install single migration tool boolean.
+     *
+     * @param checkTask        the check task
+     * @param installParameter the install parameter
+     * @return the boolean
      */
-    public static void installIncrementalMigrationToolsOffline() {
-        CheckTask checkTask = new CheckTaskIncrementalMigration();
-        checkTask.installAllPackages();
-        LOGGER.info("Install incremental migration tools finished.");
+    public static boolean installSingleMigrationTool(CheckTask checkTask, String installParameter) {
+        boolean flag = true;
+        String installWay = PortalControl.toolsMigrationParametersTable.get(installParameter);
+        if (installWay.equals("online")) {
+            flag = checkTask.installAllPackages(true);
+        } else if (installWay.equals("offline")) {
+            flag = checkTask.installAllPackages(false);
+        } else {
+            flag = false;
+            LOGGER.error("Error message: Please check " + installParameter + " in migrationConfig.properties.This property must be online or offline.");
+        }
+        return flag;
     }
 
-    /**
-     * Install reverse migration tools online.
-     */
-    public static void installReverseMigrationToolsOnline() {
-        RuntimeExecTools.download(Debezium.Kafka.PKG_URL, Debezium.PKG_PATH);
-        RuntimeExecTools.download(Debezium.Confluent.PKG_URL, Debezium.PKG_PATH);
-        RuntimeExecTools.download(Debezium.Connector.OPENGAUSS_PKG_URL, Debezium.PKG_PATH);
-        InstallMigrationTools.installReverseMigrationToolsOffline();
-    }
-
-    /**
-     * Install reverse migration tools offline.
-     */
-    public static void installReverseMigrationToolsOffline() {
-        CheckTask checkTask = new CheckTaskReverseMigration();
-        checkTask.installAllPackages();
-        LOGGER.info("Install reverse migration tools finished.");
-    }
-
-    /**
-     * Install datacheck tools online.
-     */
-    public static void installDatacheckToolsOnline() {
-        RuntimeExecTools.download(Check.PKG_URL, Check.PKG_PATH);
-        InstallMigrationTools.installDatacheckToolsOffline();
-    }
-
-    /**
-     * Install datacheck tools offline.
-     */
-    public static void installDatacheckToolsOffline() {
-        CheckTaskFullDatacheck checkTask = new CheckTaskFullDatacheck();
-        checkTask.installAllPackages();
-        LOGGER.info("Install datacheck tools finished.");
-    }
 
     /**
      * Install migration tools.
+     *
+     * @param checkTasks the check tasks
      */
-    public static void installMigrationTools() {
-        installMysqlFullMigrationTools();
-        installIncrementMigrationTools();
-        installDatacheckTools();
-        installReverseMigrationTools();
-        LOGGER.info("All migration tools have been installed.");
+    public static void installAllMigrationTools(ArrayList<CheckTask> checkTasks) {
+        boolean flag = true;
+        for (CheckTask checkTask : checkTasks) {
+            flag = checkTask.installAllPackages();
+            if (!flag) {
+                break;
+            }
+        }
+        Tools.outputResult(flag, Command.Install.Mysql.All.DEFAULT);
     }
 
     /**
-     * Uninstall mysql full migration tools.
+     * Install all migration tools.
+     *
+     * @param download   the download
+     * @param checkTasks the check tasks
      */
-    public static void uninstallMysqlFullMigrationTools() {
-        RuntimeExecTools.removeFile(PortalControl.toolsConfigParametersTable.get(Chameleon.VENV_PATH) + "venv", PortalControl.portalControlPath + "logs/error.log");
-        RuntimeExecTools.removeFile(PortalControl.toolsConfigParametersTable.get(Chameleon.PATH).replaceFirst("~", System.getProperty("user.home")), PortalControl.portalControlPath + "logs/error.log");
-        RuntimeExecTools.removeFile(PortalControl.portalControlPath + "tmp/chameleon", PortalControl.portalControlPath + "logs/error.log");
+    public static void installAllMigrationTools(boolean download, ArrayList<CheckTask> checkTasks) {
+        boolean flag = true;
+        for (CheckTask checkTask : checkTasks) {
+            flag = checkTask.installAllPackages(download);
+            if (!flag) {
+                break;
+            }
+        }
+        Tools.outputResult(flag, Command.Install.Mysql.All.DEFAULT);
     }
 
     /**
-     * Uninstall incremental migration tools.
+     * Remove single migration tool files.
+     *
+     * @param filePaths the file paths
+     * @param errorPath the error path
      */
-    public static void uninstallIncrementalMigrationTools() {
-        RuntimeExecTools.removeFile(PortalControl.toolsConfigParametersTable.get(Debezium.PATH), PortalControl.portalControlPath + "logs/error.log");
-        RuntimeExecTools.removeFile(PortalControl.portalControlPath + "tmp/kafka-logs", PortalControl.portalControlPath + "logs/error.log");
-        RuntimeExecTools.removeFile(PortalControl.portalControlPath + "tmp/zookeeper", PortalControl.portalControlPath + "logs/error.log");
-    }
-
-    /**
-     * Uninstall datacheck tools.
-     */
-    public static void uninstallDatacheckTools() {
-        RuntimeExecTools.removeFile(PortalControl.toolsConfigParametersTable.get(Check.PATH), PortalControl.portalControlPath + "logs/error.log");
-    }
-
-    /**
-     * Uninstall reverse migration tools.
-     */
-    public static void uninstallReverseMigrationTools() {
-        RuntimeExecTools.removeFile(PortalControl.toolsConfigParametersTable.get(Debezium.PATH), PortalControl.portalControlPath + "logs/error.log");
-        RuntimeExecTools.removeFile(PortalControl.portalControlPath + "tmp/kafka-logs", PortalControl.portalControlPath + "logs/error.log");
-        RuntimeExecTools.removeFile(PortalControl.portalControlPath + "tmp/zookeeper", PortalControl.portalControlPath + "logs/error.log");
+    public static void removeSingleMigrationToolFiles(ArrayList<String> filePaths, String errorPath) {
+        for (String path : filePaths) {
+            RuntimeExecTools.removeFile(path, errorPath);
+        }
     }
 
     /**
      * Uninstall migration tools.
      */
     public static void uninstallMigrationTools() {
-        uninstallMysqlFullMigrationTools();
-        uninstallIncrementalMigrationTools();
-        uninstallDatacheckTools();
-        uninstallReverseMigrationTools();
-    }
-
-    /**
-     * Install mysql full migration tools.You can install tools online or offline.
-     */
-    public static void installMysqlFullMigrationTools() {
-        String installWay = PortalControl.toolsMigrationParametersTable.get(MigrationParameters.Install.FULL_MIGRATION);
-        if (installWay.equals("online")) {
-            installMysqlFullMigrationToolsOnline();
-        } else if (installWay.equals("offline")) {
-            installMysqlFullMigrationToolsOffline();
-        } else {
-            LOGGER.error("Please check default.install.fullmigration.tools.way in migrationConfig.properties.This property must be online or offline.");
+        ArrayList<CheckTask> checkTaskList = new ArrayList<>();
+        checkTaskList.add(new CheckTaskMysqlFullMigration());
+        checkTaskList.add(new CheckTaskIncrementalMigration());
+        checkTaskList.add(new CheckTaskIncrementalDatacheck());
+        for (CheckTask checkTask : checkTaskList) {
+            checkTask.uninstall();
         }
     }
 
-    /**
-     * Install increment migration tools.You can install tools online or offline.
-     */
-    public static void installIncrementMigrationTools() {
-        String installWay = PortalControl.toolsMigrationParametersTable.get(MigrationParameters.Install.INCREMENTAL_MIGRATION);
-        if (installWay.equals("online")) {
-            installIncrementalMigrationToolsOnline();
-        } else if (installWay.equals("offline")) {
-            installIncrementalMigrationToolsOffline();
-        } else {
-            LOGGER.info("Please check default.install.incremental.migration.tools.way in migrationConfig.properties.This property must be online or offline.");
-        }
-    }
-
-    /**
-     * Install datacheck tools.You can install tools online or offline.
-     */
-    public static void installDatacheckTools() {
-        String installWay = PortalControl.toolsMigrationParametersTable.get(MigrationParameters.Install.CHECK);
-        if (installWay.equals("online")) {
-            installDatacheckToolsOnline();
-        } else if (installWay.equals("offline")) {
-            installDatacheckToolsOffline();
-        } else {
-            LOGGER.info("Please check default.install.datacheck.tools.way in migrationConfig.properties.This property must be online or offline.");
-        }
-    }
-
-    /**
-     * Install reverse migration tools offline.
-     */
-    public static void installReverseMigrationTools() {
-        String installWay = PortalControl.toolsMigrationParametersTable.get(MigrationParameters.Install.REVERSE_MIGRATION);
-        if (installWay.equals("online")) {
-            installReverseMigrationToolsOnline();
-        } else if (installWay.equals("offline")) {
-            installReverseMigrationToolsOffline();
-        } else {
-            LOGGER.info("Please check default.install.datacheck.tools.way in migrationConfig.properties.This property must be online or offline.");
-        }
-    }
 }

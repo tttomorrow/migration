@@ -1,14 +1,7 @@
 package org.opengauss.portalcontroller.check;
 
-import org.opengauss.portalcontroller.Plan;
-import org.opengauss.portalcontroller.PortalControl;
-import org.opengauss.portalcontroller.RuntimeExecTools;
-import org.opengauss.portalcontroller.Task;
-import org.opengauss.portalcontroller.Tools;
-import org.opengauss.portalcontroller.constant.Chameleon;
-import org.opengauss.portalcontroller.constant.Command;
-import org.opengauss.portalcontroller.constant.MigrationParameters;
-import org.opengauss.portalcontroller.constant.Status;
+import org.opengauss.portalcontroller.*;
+import org.opengauss.portalcontroller.constant.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -18,15 +11,18 @@ import java.util.Hashtable;
 
 import static org.opengauss.portalcontroller.Plan.runningTaskList;
 
+/**
+ * The type Check task mysql full migration.
+ */
 public class CheckTaskMysqlFullMigration implements CheckTask {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(CheckTaskMysqlFullMigration.class);
 
-    /**
-     * Install chameleon package.
-     */
-    @Override
-    public void installAllPackages() {
+    public boolean installAllPackages(boolean download) {
+        if(download){
+            RuntimeExecTools.download(Chameleon.PKG_URL, Chameleon.PKG_PATH);
+        }
+        boolean flag = true;
         Hashtable<String, String> hashtable = PortalControl.toolsConfigParametersTable;
         String chameleonVenvPath = hashtable.get(Chameleon.VENV_PATH);
         String chameleonPkgPath = Tools.getPackagePath(Chameleon.PKG_PATH, Chameleon.PKG_NAME);
@@ -34,19 +30,44 @@ public class CheckTaskMysqlFullMigration implements CheckTask {
         RuntimeExecTools.executeOrder("python3 -m venv " + chameleonVenvPath + "venv", 3000, PortalControl.portalControlPath + "logs/error.log");
         String[] cmdParts = (chameleonVenvPath + "venv/bin/pip3 install " + chameleonPkgPath).split(" ");
         RuntimeExecTools.executeOrder(cmdParts, 3000, PortalControl.portalControlPath, PortalControl.portalControlPath + "logs/install_chameleon.log");
-        try {
-            File chameleonFile = new File(chameleonVenvPath + "venv/bin/chameleon");
+        File chameleonFile = new File(chameleonVenvPath + "venv/bin/chameleon");
+        if (chameleonFile.exists()) {
+            LOGGER.info("Chameleon has been installed.If you want to update the chameleon.Please uninstall the chameleon first.");
+        } else {
+            LOGGER.info("Installing chameleon...");
             while (true) {
-                Thread.sleep(1000);
-                LOGGER.info("Installing chameleon...");
-                if (chameleonFile.exists()) {
-                    LOGGER.info("Chameleon has been installed.If you want to update the chameleon.Please uninstall the chameleon first.");
-                    break;
+                try {
+                    Thread.sleep(1000);
+                    if (Tools.getCommandPid("venv/bin/pip3 install " + chameleonPkgPath) == -1) {
+                        String[] chameleonParts = (chameleonVenvPath + "venv/bin/chameleon --version").split(" ");
+                        RuntimeExecTools.executeOrder(chameleonParts, 3000, PortalControl.portalControlPath, PortalControl.portalControlPath + "logs/test_chameleon.log");
+                        if (Tools.readFile(new File(PortalControl.portalControlPath + "logs/test_chameleon.log")).equals("")) {
+                            flag = false;
+                            LOGGER.error("Error message: Install chameleon failed.");
+                            Tools.outputFileString(PortalControl.portalControlPath + "logs/install_chameleon.log");
+                        } else {
+                            LOGGER.info("Install chameleon success.");
+                        }
+                        break;
+                    }
+                } catch (InterruptedException e) {
+                    flag = false;
+                    LOGGER.error("Interrupted exception occurred in waiting for process running.");
                 }
             }
-        } catch (InterruptedException e) {
-            LOGGER.error("Interrupted exception occurred in waiting for process running.");
         }
+        return flag;
+    }
+
+
+    /**
+     * Install chameleon package.
+     */
+    @Override
+    public boolean installAllPackages() {
+        CheckTask checkTask = new CheckTaskMysqlFullMigration();
+        boolean flag = InstallMigrationTools.installSingleMigrationTool(checkTask,MigrationParameters.Install.FULL_MIGRATION);
+        return flag;
     }
 
     /**
@@ -61,7 +82,7 @@ public class CheckTaskMysqlFullMigration implements CheckTask {
         String fileDirectory = chameleonPath + "configuration/";
         String newFileName = PortalControl.portalWorkSpacePath + "config/chameleon/default_" + workspaceId + ".yml";
         Tools.createFile(fileDirectory, false);
-        RuntimeExecTools.copyFile(newFileName, fileDirectory);
+        RuntimeExecTools.copyFile(newFileName, fileDirectory, true);
     }
 
     /**
@@ -75,13 +96,16 @@ public class CheckTaskMysqlFullMigration implements CheckTask {
         Tools.createFile(PortalControl.portalWorkSpacePath + "pid/", false);
         Tools.changeSingleYmlParameter("pid_dir", PortalControl.portalWorkSpacePath + "pid/", chameleonConfigPath);
         Tools.changeSingleYmlParameter("sources.mysql.out_dir", PortalControl.portalWorkSpacePath + "tmp", chameleonConfigPath);
+        Tools.changeSingleYmlParameter("dump_json", "yes", chameleonConfigPath);
         Tools.changeFullMigrationParameters(PortalControl.toolsMigrationParametersTable, workspaceId);
     }
 
     @Override
     public void prepareWork(String workspaceId) {
         runningTaskList.add(Command.Start.Mysql.FULL);
-        PortalControl.status = Status.START_FULL_MIGRATION;
+        if (PortalControl.status != Status.ERROR) {
+            PortalControl.status = Status.START_FULL_MIGRATION;
+        }
         changeParameters(workspaceId);
         copyConfigFiles(workspaceId);
         Task task = new Task();
@@ -93,8 +117,10 @@ public class CheckTaskMysqlFullMigration implements CheckTask {
         chameleonParameterTable.put("--source", "mysql");
         task.useChameleonReplicaOrder(chameleonVenv, "add_source", chameleonParameterTable, true);
         task.startChameleonReplicaOrder(chameleonVenv, "init_replica", chameleonParameterTable);
-        PortalControl.status = Status.RUNNING_FULL_MIGRATION;
-        LOGGER.info("Mysql full migration is running.");
+        if (PortalControl.status != Status.ERROR) {
+            LOGGER.info("Mysql full migration is running.");
+            PortalControl.status = Status.RUNNING_FULL_MIGRATION;
+        }
     }
 
     @Override
@@ -106,16 +132,25 @@ public class CheckTaskMysqlFullMigration implements CheckTask {
         chameleonParameterTable.put("--source", "mysql");
         task.checkChameleonReplicaOrder("init_replica", chameleonParameterTable, false);
         if (PortalControl.toolsMigrationParametersTable.get(MigrationParameters.SNAPSHOT_OBJECT).equals("yes")) {
-            task.useChameleonReplicaOrder(chameleonVenv, "start_trigger_replica", chameleonParameterTable,false);
+            task.useChameleonReplicaOrder(chameleonVenv, "start_trigger_replica", chameleonParameterTable, false);
             task.useChameleonReplicaOrder(chameleonVenv, "start_view_replica", chameleonParameterTable, false);
             task.useChameleonReplicaOrder(chameleonVenv, "start_func_replica", chameleonParameterTable, false);
             task.useChameleonReplicaOrder(chameleonVenv, "start_proc_replica", chameleonParameterTable, false);
         }
         chameleonParameterTable.clear();
-        LOGGER.info("Mysql full migration finished.");
-        PortalControl.status = Status.FULL_MIGRATION_FINISHED;
+        if (PortalControl.status != Status.ERROR) {
+            LOGGER.info("Mysql full migration finished.");
+            PortalControl.status = Status.FULL_MIGRATION_FINISHED;
+        } else {
+            LOGGER.error("Mysql full migration failed.");
+        }
     }
 
+    /**
+     * Clean data.
+     *
+     * @param workspaceId the workspace id
+     */
     public void cleanData(String workspaceId) {
         Task task = new Task();
         String chameleonVenv = Tools.getSinglePropertiesParameter(Chameleon.VENV_PATH, PortalControl.toolsConfigPath);
@@ -123,6 +158,9 @@ public class CheckTaskMysqlFullMigration implements CheckTask {
         chameleonParameterTable.put("--config", "default_" + workspaceId);
         task.useChameleonReplicaOrder(chameleonVenv, "drop_replica_schema", chameleonParameterTable, true);
         String chameleonVenvPath = PortalControl.toolsConfigParametersTable.get(Chameleon.VENV_PATH);
+        RuntimeExecTools.removeFile(chameleonVenvPath + "data_default_" + Plan.workspaceId + "_drop_replica_schema.json", PortalControl.portalWorkSpacePath + "logs/error.log");
+        RuntimeExecTools.removeFile(chameleonVenvPath + "data_default_" + Plan.workspaceId + "_create_replica_schema.json", PortalControl.portalWorkSpacePath + "logs/error.log");
+        RuntimeExecTools.removeFile(chameleonVenvPath + "data_default_" + Plan.workspaceId + "_add_source.json", PortalControl.portalWorkSpacePath + "logs/error.log");
         RuntimeExecTools.removeFile(chameleonVenvPath + "data_default_" + Plan.workspaceId + "_init_replica.json", PortalControl.portalWorkSpacePath + "logs/error.log");
         RuntimeExecTools.removeFile(chameleonVenvPath + "data_default_" + Plan.workspaceId + "_start_view_replica.json", PortalControl.portalWorkSpacePath + "logs/error.log");
         RuntimeExecTools.removeFile(chameleonVenvPath + "data_default_" + Plan.workspaceId + "_start_trigger_replica.json", PortalControl.portalWorkSpacePath + "logs/error.log");
@@ -132,6 +170,15 @@ public class CheckTaskMysqlFullMigration implements CheckTask {
 
     public void checkEnd() {
 
+    }
+
+    public void uninstall(){
+        String errorPath = PortalControl.portalControlPath + "logs/error.log";
+        ArrayList<String> filePaths = new ArrayList<>();
+        filePaths.add(PortalControl.toolsConfigParametersTable.get(Chameleon.VENV_PATH) + "venv");
+        filePaths.add(PortalControl.toolsConfigParametersTable.get(Chameleon.PATH).replaceFirst("~", System.getProperty("user.home")));
+        filePaths.add(PortalControl.portalControlPath + "tmp/chameleon");
+        InstallMigrationTools.removeSingleMigrationToolFiles(filePaths,errorPath);
     }
 
 }

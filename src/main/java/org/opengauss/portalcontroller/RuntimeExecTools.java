@@ -1,5 +1,6 @@
 package org.opengauss.portalcontroller;
 
+import org.opengauss.portalcontroller.constant.Status;
 import org.slf4j.LoggerFactory;
 
 import java.io.BufferedReader;
@@ -27,35 +28,24 @@ public class RuntimeExecTools {
      * @param command       Command to execute.
      * @param time          Time with unit milliseconds.If timeout,the process will exit.
      * @param errorFilePath the error file path
+     * @return the boolean
      */
-    public static void executeOrder(String command, int time, String errorFilePath) {
+    public static boolean executeOrder(String command, int time, String errorFilePath) {
+        boolean timeOut = false;
         ProcessBuilder processBuilder = new ProcessBuilder();
         String[] commands = command.split(" ");
         processBuilder.command(commands);
         processBuilder.redirectError(new File(errorFilePath));
         try {
             Process process = processBuilder.start();
-            String errorStr = getInputStreamString(process.getErrorStream());
-            if (time == 0) {
-                int retCode = process.waitFor();
-                if (retCode == 0) {
-                    LOGGER.info("Execute order finished.");
-                } else {
-                    if (!errorStr.equals("")) {
-                        LOGGER.error(errorStr);
-                    }
-                }
-            } else {
-                process.waitFor(time, TimeUnit.MILLISECONDS);
-                if (!errorStr.equals("")) {
-                    LOGGER.error(errorStr);
-                }
-            }
+            timeOut = process.waitFor(time, TimeUnit.MILLISECONDS);
+            Tools.outputFileString(PortalControl.portalControlPath + "logs/error.log");
         } catch (IOException e) {
             LOGGER.error("IO exception occurred in execute command " + command);
         } catch (InterruptedException e) {
             LOGGER.error("Interrupted exception occurred in execute command " + command);
         }
+        return timeOut;
     }
 
     /**
@@ -189,21 +179,27 @@ public class RuntimeExecTools {
      *
      * @param urlParameter  Url parameter.
      * @param pathParameter Path parameter.
+     * @return the boolean
      */
-    public static void download(String urlParameter, String pathParameter) {
+    public static boolean download(String urlParameter, String pathParameter) {
+        boolean flag = true;
         String url = PortalControl.toolsConfigParametersTable.get(urlParameter);
         String path = PortalControl.toolsConfigParametersTable.get(pathParameter);
         String[] urlParameters = url.split("/");
         String packageName = urlParameters[urlParameters.length - 1];
         Tools.createFile(path, false);
         File file = new File(path + packageName);
-        if (file.exists() && file.isDirectory()) {
-            LOGGER.error("Directory " + path + packageName + " has existed.Download failed.");
-            Thread.interrupted();
+        if (file.exists() && file.isFile()) {
+            LOGGER.info("File " + path + packageName + " already exists.Skip the download package.");
+            flag = false;
+        }else if(file.exists()){
+            LOGGER.error("Directory " + path + packageName + " already exists.Please rename the directory.");
+        }else{
+            String command = "wget -c -P " + path + " " + url + " --no-check-certificate";
+            executeOrder(command, 600000, PortalControl.portalControlPath + "logs/error.log");
+            LOGGER.info("Download file " + url + " to " + path + " finished.");
         }
-        String command = "wget -c -P " + path + " " + url + " --no-check-certificate";
-        executeOrder(command, 600000, PortalControl.portalControlPath + "logs/error.log");
-        LOGGER.info("Download file " + url + " to " + path + " finished.");
+        return flag;
     }
 
     /**
@@ -233,24 +229,20 @@ public class RuntimeExecTools {
      * @param filePath  Filepath.
      * @param directory the directory
      */
-    public static void copyFile(String filePath, String directory) {
-        String command = "cp -R " + filePath + " " + directory;
-        executeOrder(command, 60000, PortalControl.portalWorkSpacePath + "logs/error.log");
-    }
-
-    /**
-     * Copy file not exist.
-     *
-     * @param filePath  the file path
-     * @param directory the directory
-     */
-    public static void copyFileNotExist(String filePath, String directory) {
-        if (new File(filePath).exists()) {
-            String command = "cp -R " + filePath + " " + directory;
-            executeOrder(command, 60000, PortalControl.portalWorkSpacePath + "logs/error.log");
+    public static void copyFile(String filePath, String directory, boolean recovery) {
+        File file = new File(filePath);
+        if(file.exists()){
+            String fileName = file.getName();
+            String newFilePath =  directory + fileName;
+            boolean exist = new File(newFilePath).exists();
+            if (!exist || recovery) {
+                String command = "cp -R " + filePath + " " + directory;
+                executeOrder(command, 60000, PortalControl.portalWorkSpacePath + "logs/error.log");
+            }
+        }else{
+            LOGGER.error("File " + filePath + "not exist.");
         }
     }
-
 
     /**
      * Remove file.
@@ -277,19 +269,19 @@ public class RuntimeExecTools {
     public static void unzipFile(String packagePath, String directory) {
         String command = "";
         if (!new File(packagePath).exists()) {
-            LOGGER.error("No package to install.");
-            Thread.interrupted();
+            LOGGER.error("Error message: No package to install.");
         }
         if (packagePath.endsWith(".zip")) {
-            command = "unzip " + packagePath + " " + directory;
-            executeOrder(command, 300000, PortalControl.portalControlPath + "logs/error.log");
+            command = "unzip -q -o " + packagePath + " -d " + directory;
+            executeOrder(command, 900000, PortalControl.portalControlPath + "logs/error.log");
             LOGGER.info("Unzip file finished.");
         } else if (packagePath.endsWith(".tar.gz") || packagePath.endsWith(".tgz")) {
             command = "tar -zxf " + packagePath + " -C " + directory;
-            executeOrder(command, 300000, PortalControl.portalControlPath + "logs/error.log");
+            executeOrder(command, 900000, PortalControl.portalControlPath + "logs/error.log");
             LOGGER.info("Unzip file " + packagePath + " to " + directory + " finished.");
         } else {
-            LOGGER.error("Invalid package path.Please check if the package is ends with .zip or .tar.gz");
+            LOGGER.error("Error message: Invalid package type.");
+            LOGGER.error("Invalid package type.Please check if the package is ends with .zip or .tar.gz or .tgz");
         }
     }
 

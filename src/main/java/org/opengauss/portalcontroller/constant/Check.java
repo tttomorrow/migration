@@ -1,6 +1,7 @@
 package org.opengauss.portalcontroller.constant;
 
 public interface Check {
+    String NAME = "datacheck";
     String PKG_URL = "datacheck.pkg.url";
     String INSTALL_PATH = "datacheck.install.path";
     String PATH = "datacheck.path";

@@ -17,6 +17,7 @@ package org.opengauss.portalcontroller;
 import org.opengauss.portalcontroller.check.*;
 import org.opengauss.portalcontroller.constant.Command;
 import org.opengauss.portalcontroller.constant.Debezium;
+import org.opengauss.portalcontroller.constant.Status;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -235,7 +236,11 @@ public final class Plan {
             Plan.stopPlan = true;
             Plan.stopPlanThreads();
             Plan.clean();
-            LOGGER.info("Plan finished.");
+            if (PortalControl.status == Status.ERROR) {
+                LOGGER.error("Plan failed.");
+            } else {
+                LOGGER.info("Plan finished.");
+            }
             PortalControl.threadCheckProcess.exit = true;
         } else {
             LOGGER.error("There is a plan running.Please stop current plan or wait.");
@@ -250,12 +255,12 @@ public final class Plan {
             LOGGER.info("Stop plan.");
             Tools.closeAllProcess("--config default_" + workspaceId + " --");
             PortalControl.threadCheckProcess.exit = true;
+            stopAllTasks();
             Plan.runningTaskThreadsList.clear();
             Plan.runningTaskList.clear();
             Plan.currentTask = "";
             PortalControl.taskList.clear();
-            stopAllTasks();
-            File portalFile = new File(portalWorkSpacePath + "status/portal.txt");
+            File portalFile = new File(portalWorkSpacePath + "portal-running-threads.txt");
             BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(portalFile)));
             bw.write("Plan status: runnable");
             bw.flush();
@@ -304,7 +309,8 @@ public final class Plan {
                             cleanFullDataCheck = true;
                         } else {
                             String[] str = thread.getProcessName().split(" ");
-                            LOGGER.error("Process " + str[0] + " exit abnormally or process " + str[0] + " has started.");
+                            LOGGER.error("Error message: Process " + str[0] + " exit abnormally or process " + str[0] + " has started.");
+                            Plan.stopPlan = true;
                             flag = false;
                         }
                     }
@@ -337,13 +343,16 @@ public final class Plan {
      * @return the boolean
      */
     public static boolean createWorkspace(String workspaceId) {
+        String portIdFile = portalControlPath + "portal.portId.lock";
+        Tools.createFile(portIdFile, true);
+        PortalControl.portId = Tools.setPortId(portIdFile) % 100;
         boolean flag = true;
         String path = portalControlPath + "workspace/" + workspaceId + "/";
         Tools.createFile(path, false);
         Tools.createFile(path + "tmp", false);
         Tools.createFile(path + "logs", false);
         workspacePath = path;
-        RuntimeExecTools.copyFile(portalControlPath + "config", path);
+        RuntimeExecTools.copyFile(portalControlPath + "config/", path, false);
         Tools.createFile(portalWorkSpacePath + "status/", false);
         Tools.createFile(portalWorkSpacePath + "status/portal.txt", true);
         Tools.createFile(portalWorkSpacePath + "status/full_migration.txt", true);
@@ -357,10 +366,10 @@ public final class Plan {
         table2.put("offset.storage.file.filename", portalWorkSpacePath + "tmp/connect.offsets");
         table2.put("plugin.path", "share/java, " + PortalControl.toolsConfigParametersTable.get(Debezium.Connector.PATH));
         Tools.changePropertiesParameters(table2, debeziumConfigPath + "connect-avro-standalone.properties");
-        RuntimeExecTools.copyFile(debeziumConfigPath + "connect-avro-standalone.properties", debeziumConfigPath + "connect-avro-standalone-source.properties");
-        RuntimeExecTools.copyFile(debeziumConfigPath + "connect-avro-standalone.properties", debeziumConfigPath + "connect-avro-standalone-sink.properties");
-        RuntimeExecTools.copyFile(debeziumConfigPath + "connect-avro-standalone.properties", debeziumConfigPath + "connect-avro-standalone-reverse-source.properties");
-        RuntimeExecTools.copyFile(debeziumConfigPath + "connect-avro-standalone.properties", debeziumConfigPath + "connect-avro-standalone-reverse-sink.properties");
+        RuntimeExecTools.copyFile(debeziumConfigPath + "connect-avro-standalone.properties", debeziumConfigPath + "connect-avro-standalone-source.properties", false);
+        RuntimeExecTools.copyFile(debeziumConfigPath + "connect-avro-standalone.properties", debeziumConfigPath + "connect-avro-standalone-sink.properties", false);
+        RuntimeExecTools.copyFile(debeziumConfigPath + "connect-avro-standalone.properties", debeziumConfigPath + "connect-avro-standalone-reverse-source.properties", false);
+        RuntimeExecTools.copyFile(debeziumConfigPath + "connect-avro-standalone.properties", debeziumConfigPath + "connect-avro-standalone-reverse-sink.properties", false);
         Tools.changeFile("/tmp/datacheck/logs", portalWorkSpacePath + "/logs/datacheck", portalWorkSpacePath + "config/datacheck/log4j2.xml");
         Tools.changeFile("/tmp/datacheck/logs", portalWorkSpacePath + "/logs/datacheck", portalWorkSpacePath + "config/datacheck/log4j2source.xml");
         Tools.changeFile("/tmp/datacheck/logs", portalWorkSpacePath + "/logs/datacheck", portalWorkSpacePath + "config/datacheck/log4j2sink.xml");
@@ -381,10 +390,15 @@ public final class Plan {
      * Clean.
      */
     public static void clean() {
-        CheckTaskMysqlFullMigration checkTaskMysqlFullMigration = new CheckTaskMysqlFullMigration();
-        checkTaskMysqlFullMigration.cleanData(workspaceId);
+        if (PortalControl.taskList.contains(Command.Start.Mysql.FULL)) {
+            CheckTaskMysqlFullMigration checkTaskMysqlFullMigration = new CheckTaskMysqlFullMigration();
+            checkTaskMysqlFullMigration.cleanData(workspaceId);
+        }
     }
 
+    /**
+     * Stop all tasks.
+     */
     public static void stopAllTasks() {
         try {
             Task task = new Task();
