@@ -121,7 +121,9 @@ public class CheckTaskFullDatacheck implements CheckTask {
                 }
                 break;
             }
-            LOGGER.info("Full migration datacheck is running...");
+            if(!Tools.outputDatacheckStatus(Parameter.CHECK_FULL)){
+                break;
+            }
             try {
                 Thread.sleep(1500);
             } catch (InterruptedException e) {

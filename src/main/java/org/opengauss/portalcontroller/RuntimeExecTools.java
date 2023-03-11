@@ -105,7 +105,7 @@ public class RuntimeExecTools {
      * @param time           the time
      * @param outputFilePath the output file path
      */
-    public static void executeOrderCurrentRuntime(String[] cmdParts, int time, String outputFilePath) {
+    public static void executeOrderCurrentRuntime(String[] cmdParts, int time, String outputFilePath,String errorLog) {
         try {
             Process process = Runtime.getRuntime().exec(cmdParts);
             String errorStr = getInputStreamString(process.getErrorStream());
@@ -122,7 +122,11 @@ public class RuntimeExecTools {
                 String str = bufferedReader.readLine();
                 bufferedReader.close();
                 BufferedWriter bufferedWriter = new BufferedWriter(new FileWriter(outputFilePath, true));
-                bufferedWriter.write(str);
+                if(str != null && !str.equals("")){
+                    bufferedWriter.write(str);
+                }else{
+                    LOGGER.error(errorLog);
+                }
                 bufferedWriter.flush();
                 bufferedWriter.write(errorStr);
                 bufferedWriter.flush();

@@ -251,27 +251,15 @@ public final class Plan {
      * Stop Plan.
      */
     public static void stopPlanThreads() {
-        try {
-            LOGGER.info("Stop plan.");
-            Tools.closeAllProcess("--config default_" + workspaceId + " --");
-            PortalControl.threadCheckProcess.exit = true;
-            stopAllTasks();
-            Plan.runningTaskThreadsList.clear();
-            Plan.runningTaskList.clear();
-            Plan.currentTask = "";
-            PortalControl.taskList.clear();
-            File portalFile = new File(portalWorkSpacePath + "portal-running-threads.txt");
-            BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(portalFile)));
-            bw.write("Plan status: runnable");
-            bw.flush();
-            bw.close();
-            isPlanRunnable = true;
-            LOGGER.info("All tasks has stopped.");
-        } catch (FileNotFoundException e) {
-            LOGGER.error("File status not found.");
-        } catch (IOException e) {
-            LOGGER.error("IO exception occurred in stopping the plan.");
-        }
+        LOGGER.info("Stop plan.");
+        Tools.closeAllProcess("--config default_" + workspaceId + " --");
+        PortalControl.threadCheckProcess.exit = true;
+        stopAllTasks();
+        Plan.runningTaskThreadsList.clear();
+        Plan.runningTaskList.clear();
+        Plan.currentTask = "";
+        PortalControl.taskList.clear();
+        isPlanRunnable = true;
     }
 
     /**
@@ -281,57 +269,30 @@ public final class Plan {
      */
     public static boolean checkRunningThreads() {
         boolean flag = true;
-        try {
-            File file = new File(portalWorkSpacePath + "portal-running-threads.txt");
-            BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(file)));
-            if (Plan.isPlanRunnable) {
-                bw.write("Plan status: runnable" + System.lineSeparator());
-            } else {
-                bw.write("Plan status: running" + System.lineSeparator());
-            }
-            bw.write("Current plan:" + System.lineSeparator());
-            for (String task : PortalControl.taskList) {
-                bw.write(task + System.lineSeparator());
-            }
-            bw.write("Running task list:" + System.lineSeparator());
-            for (String task : runningTaskList) {
-                bw.write(task + System.lineSeparator());
-            }
-            bw.flush();
-            if (runningTaskThreadsList.size() != 0) {
-                boolean cleanFullDataCheck = false;
-                bw.write("Running task threads list:" + System.lineSeparator());
-                bw.write("method name | process name | pid " + System.lineSeparator());
-                for (RunningTaskThread thread : runningTaskThreadsList) {
-                    int pid = Tools.getCommandPid(thread.getProcessName());
-                    if ((pid == -1) && (!PortalControl.commandLineParameterStringMap.get("action").equals("stop"))) {
-                        if (thread.getMethodName().contains("Check") && !PortalControl.fullDatacheckFinished) {
-                            cleanFullDataCheck = true;
-                        } else {
-                            String[] str = thread.getProcessName().split(" ");
-                            LOGGER.error("Error message: Process " + str[0] + " exit abnormally or process " + str[0] + " has started.");
-                            Plan.stopPlan = true;
-                            flag = false;
-                        }
-                    }
-                    bw.write(thread.getMethodName() + "|" + thread.getProcessName() + "|" + pid + System.lineSeparator());
-                }
-                bw.flush();
-                if (cleanFullDataCheck) {
-                    PortalControl.fullDatacheckFinished = true;
-                    int length = runningTaskThreadsList.size();
-                    for (int i = length - 1; i >= 0; i--) {
-                        if (runningTaskThreadsList.get(i).getMethodName().contains("Check")) {
-                            runningTaskThreadsList.remove(i);
-                        }
+        if (runningTaskThreadsList.size() != 0) {
+            boolean cleanFullDataCheck = false;
+            for (RunningTaskThread thread : runningTaskThreadsList) {
+                int pid = Tools.getCommandPid(thread.getProcessName());
+                if ((pid == -1) && (!PortalControl.commandLineParameterStringMap.get("action").equals("stop"))) {
+                    if (thread.getMethodName().contains("Check") && !PortalControl.fullDatacheckFinished) {
+                        cleanFullDataCheck = true;
+                    } else {
+                        String[] str = thread.getProcessName().split(" ");
+                        LOGGER.error("Error message: Process " + str[0] + " exit abnormally or process " + str[0] + " has started.");
+                        Plan.stopPlan = true;
+                        flag = false;
                     }
                 }
             }
-            bw.close();
-        } catch (FileNotFoundException e) {
-            LOGGER.error("Can't find the file status.Please check if status exists.");
-        } catch (IOException e) {
-            LOGGER.error("IO exception occurred in executing the command.Execute command failed.");
+            if (cleanFullDataCheck) {
+                PortalControl.fullDatacheckFinished = true;
+                int length = runningTaskThreadsList.size();
+                for (int i = length - 1; i >= 0; i--) {
+                    if (runningTaskThreadsList.get(i).getMethodName().contains("Check")) {
+                        runningTaskThreadsList.remove(i);
+                    }
+                }
+            }
         }
         return flag;
     }

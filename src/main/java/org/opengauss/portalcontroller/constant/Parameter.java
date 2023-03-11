@@ -11,4 +11,9 @@ public interface Parameter {
     String MYSQL_CONNECTOR_SOURCE_NAME = "kafka mysql connector source";
     String OPENGAUSS_CONNECTOR_SOURCE_NAME = "kafka opengauss connector source";
     String OPENGAUSS_CONNECTOR_SINK_NAME = "kafka opengauss connector sink";
+    String INSTALL_ALL_MIGRATION_TOOLS = "Install all migration tools";
+    String CHECK_FULL = "Full migration datacheck";
+    String CHECK_INCREMENTAL = "Incremental migration datacheck";
+    String CHECK_REVERSE = "Reverse migration datacheck";
+
 }
