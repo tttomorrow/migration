@@ -6,6 +6,7 @@ import org.opengauss.portalcontroller.constant.Command;
 import org.opengauss.portalcontroller.constant.Debezium;
 import org.opengauss.portalcontroller.constant.Method;
 import org.opengauss.portalcontroller.constant.MigrationParameters;
+import org.opengauss.portalcontroller.constant.Parameter;
 import org.opengauss.portalcontroller.constant.Status;
 import org.opengauss.portalcontroller.software.Confluent;
 import org.opengauss.portalcontroller.software.Datacheck;
@@ -128,7 +129,9 @@ public class CheckTaskIncrementalDatacheck implements CheckTask {
         while (!Plan.stopPlan && !Plan.stopIncrementalMigration) {
             try {
                 LOGGER.info("Incremental migration is running...");
-                LOGGER.info("Incremental migration datacheck is running...");
+                if(!Tools.outputDatacheckStatus(Parameter.CHECK_INCREMENTAL)){
+                    break;
+                }
                 Thread.sleep(1000);
             } catch (InterruptedException e) {
                 LOGGER.error("Interrupted exception occurred in running incremental migraiton datacheck.");
