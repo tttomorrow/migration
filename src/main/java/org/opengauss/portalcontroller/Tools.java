@@ -23,7 +23,6 @@ import org.opengauss.portalcontroller.constant.Check;
 import org.opengauss.portalcontroller.constant.Command;
 import org.opengauss.portalcontroller.constant.Debezium;
 import org.opengauss.portalcontroller.constant.Default;
-import org.opengauss.portalcontroller.constant.Method;
 import org.opengauss.portalcontroller.constant.Mysql;
 import org.opengauss.portalcontroller.constant.Offset;
 import org.opengauss.portalcontroller.constant.Opengauss;
@@ -73,6 +72,7 @@ import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Properties;
 import java.util.Scanner;
 
@@ -1584,7 +1584,7 @@ public class Tools {
         String config = Tools.getSinglePropertiesParameter("key.converter.schema.registry.url", configFile);
         config += "/config";
         String[] cmdParts = new String[]{"curl", "-X", "PUT", "-H", "Content-Type: application/vnd.schemaregistry.v1+json", "--data", "{\"compatibility\": \"NONE\"}", config};
-        RuntimeExecTools.executeOrderCurrentRuntime(cmdParts, 1000, log);
+        RuntimeExecTools.executeOrderCurrentRuntime(cmdParts, 1000, log,"Run curl failed.");
     }
 
     /**
@@ -1683,5 +1683,43 @@ public class Tools {
             LOGGER.error("Error massage: Get lock failed.");
         }
         return portId;
+    }
+
+    public static boolean outputDatacheckStatus(String datacheckType){
+        String checkSourceLogPath = PortalControl.portalWorkSpacePath + "logs/datacheck/source.log";
+        boolean flag1 = Tools.outputStatus(checkSourceLogPath);
+        String checkSinkLogPath = PortalControl.portalWorkSpacePath + "logs/datacheck/sink.log";
+        boolean flag2 = Tools.outputStatus(checkSinkLogPath);
+        String checkLogPath = PortalControl.portalWorkSpacePath + "logs/datacheck/check.log";
+        boolean flag3 = Tools.outputStatus(checkLogPath);
+        boolean flag = flag1 && flag2 && flag3;
+        Tools.outputInformation(flag,datacheckType + " is running.",datacheckType + "has error.");
+        return flag;
+    }
+
+    public static boolean outputStatus(String logPath) {
+        boolean flag = true;
+        StringBuilder str = new StringBuilder();
+        if (new File(logPath).exists()) {
+            try {
+                BufferedReader fileReader = new BufferedReader((new InputStreamReader(new FileInputStream(logPath))));
+                String tempStr = "";
+                while ((tempStr = fileReader.readLine()) != null) {
+                    if (tempStr.contains("Exception:")) {
+                        str.append(tempStr).append(System.lineSeparator());
+                    }
+                }
+                fileReader.close();
+            } catch (IOException e) {
+                LOGGER.info("IO exception occurred in read file " + logPath);
+            }
+            String errorStr = str.toString();
+            if (!Objects.equals(errorStr, "")) {
+                flag = false;
+                LOGGER.error(errorStr);
+                LOGGER.error("Error occurred in " + logPath + ".You can stop plan or ignore the information.");
+            }
+        }
+        return flag;
     }
 }

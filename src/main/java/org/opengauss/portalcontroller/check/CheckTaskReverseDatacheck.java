@@ -6,6 +6,7 @@ import org.opengauss.portalcontroller.constant.Command;
 import org.opengauss.portalcontroller.constant.Debezium;
 import org.opengauss.portalcontroller.constant.Method;
 import org.opengauss.portalcontroller.constant.MigrationParameters;
+import org.opengauss.portalcontroller.constant.Parameter;
 import org.opengauss.portalcontroller.constant.Status;
 import org.opengauss.portalcontroller.software.*;
 import org.slf4j.Logger;
@@ -107,7 +108,9 @@ public class CheckTaskReverseDatacheck implements CheckTask {
         while (!Plan.stopPlan && !Plan.stopReverseMigration) {
             try {
                 LOGGER.info("Reverse migration is running...");
-                LOGGER.info("Reverse migration datacheck is running...");
+                if(!Tools.outputDatacheckStatus(Parameter.CHECK_REVERSE)){
+                    break;
+                }
                 Thread.sleep(1000);
             } catch (InterruptedException e) {
                 LOGGER.error("Interrupted exception occurred in running reverse migraiton datacheck.");
