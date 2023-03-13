@@ -14,9 +14,6 @@
  */
 package org.opengauss.portalcontroller;
 
-import com.alibaba.fastjson.JSON;
-import com.alibaba.fastjson.JSONArray;
-import com.alibaba.fastjson.JSONObject;
 import org.opengauss.jdbc.PgConnection;
 import org.opengauss.portalcontroller.constant.Chameleon;
 import org.opengauss.portalcontroller.constant.Check;
@@ -29,13 +26,7 @@ import org.opengauss.portalcontroller.constant.Opengauss;
 import org.opengauss.portalcontroller.constant.Parameter;
 import org.opengauss.portalcontroller.constant.Regex;
 import org.opengauss.portalcontroller.constant.StartPort;
-import org.opengauss.portalcontroller.constant.Status;
-import org.opengauss.portalcontroller.status.FullMigrationStatus;
-import org.opengauss.portalcontroller.status.IncrementalMigrationStatus;
-import org.opengauss.portalcontroller.status.ObjectStatus;
-import org.opengauss.portalcontroller.status.PortalStatusWriter;
 import org.opengauss.portalcontroller.status.TableStatus;
-import org.opengauss.portalcontroller.status.ThreadStatusController;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.yaml.snakeyaml.DumperOptions;
@@ -68,7 +59,6 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Hashtable;
-import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -316,19 +306,26 @@ public class Tools {
     /**
      * Check another process exist boolean.
      *
-     * @param command the command
+     * @param criticalWordList the critical word list
      * @return the boolean
      */
-    public static boolean checkAnotherProcessExist(String command) {
+    public static boolean checkAnotherProcessExist(ArrayList<String> criticalWordList) {
         boolean signal = false;
         int count = 0;
         try {
             Process pro = Runtime.getRuntime().exec(new String[]{"sh", "-c", "ps ux"});
             BufferedInputStream in = new BufferedInputStream(pro.getInputStream());
             BufferedReader br = new BufferedReader(new InputStreamReader(in));
-            String s = "";
-            while ((s = br.readLine()) != null) {
-                if (s.contains(command) && s.contains(Parameter.PORTAL_NAME)) {
+            String processName = "";
+            while ((processName = br.readLine()) != null) {
+                boolean flag = true;
+                for (String criticalWord : criticalWordList) {
+                    if (!processName.contains(criticalWord)) {
+                        flag = false;
+                        break;
+                    }
+                }
+                if (flag) {
                     count++;
                     if (count > 1) {
                         signal = true;
@@ -1201,133 +1198,6 @@ public class Tools {
     }
 
     /**
-     * Gets chameleon table status.
-     *
-     * @return the chameleon table status
-     */
-    public static ArrayList<TableStatus> getChameleonTableStatus() {
-        ArrayList<TableStatus> tableStatusList = new ArrayList<>();
-        String chameleonVenvPath = PortalControl.toolsConfigParametersTable.get(Chameleon.VENV_PATH);
-        String path = chameleonVenvPath + "data_default_" + Plan.workspaceId + "_init_replica.json";
-        String tableChameleonStatus = Tools.readFile(new File(path));
-        if (!tableChameleonStatus.equals("")) {
-            JSONObject root = JSONObject.parseObject(tableChameleonStatus);
-            JSONArray table = root.getJSONArray("table");
-            Iterator<Object> iterator = table.iterator();
-            int index = 0;
-            while (iterator.hasNext()) {
-                TableStatus tableStatus = getEveryTableStatus(index, table);
-                tableStatusList.add(tableStatus);
-                index++;
-                iterator.next();
-            }
-        }
-        return tableStatusList;
-    }
-
-    /**
-     * Gets every table status.
-     *
-     * @param index the index
-     * @param table the table
-     * @return the every table status
-     */
-    public static TableStatus getEveryTableStatus(int index, JSONArray table) {
-        String tableName = table.getJSONObject(index).getString("name");
-        double percent = table.getJSONObject(index).getDouble("percent");
-        int status = table.getJSONObject(index).getInteger("status");
-        if (new File(PortalControl.portalWorkSpacePath + "check_result/result").exists()) {
-            status = getDatacheckTableStatus(tableName, status);
-        }
-        TableStatus tableStatus = new TableStatus(tableName, status, percent);
-        return tableStatus;
-    }
-
-    /**
-     * Gets datacheck table status.
-     *
-     * @param tableName   the table name
-     * @param tableStatus the table status
-     * @return the datacheck table status
-     */
-    public static int getDatacheckTableStatus(String tableName, int tableStatus) {
-        int status = tableStatus;
-        File[] fileList = new File(PortalControl.portalWorkSpacePath + "check_result/result").listFiles();
-        for (File file1 : fileList) {
-            String fileName = file1.getName();
-            if (fileName.contains("_" + tableName + "_")) {
-                String tableCheckStatus = Tools.readFile(file1);
-                JSONObject tableObject = JSONObject.parseObject(tableCheckStatus);
-                String tableName1 = tableObject.getString("table");
-                String result1 = tableObject.getString("result");
-                if (tableName1.equals(tableName) && status < Status.Object.FULL_MIGRATION_CHECK_FINISHED && result1.equals("success")) {
-                    status = Status.Object.FULL_MIGRATION_CHECK_FINISHED;
-                } else if (tableName1.equals(tableName) && status < Status.Object.FULL_MIGRATION_CHECK_FINISHED && result1.equals("failed")) {
-                    status = Status.Object.ERROR;
-                }
-            }
-        }
-        return status;
-    }
-
-
-    /**
-     * Gets chameleon object status.
-     *
-     * @param name  the name
-     * @param order the order
-     * @return the chameleon object status
-     */
-    public static ArrayList<ObjectStatus> getChameleonObjectStatus(String name, String order) {
-        ArrayList<ObjectStatus> objectStatusList = new ArrayList<>();
-        try {
-            String chameleonStr = "";
-            String chameleonVenvPath = PortalControl.toolsConfigParametersTable.get(Chameleon.VENV_PATH);
-            String path = chameleonVenvPath + "data_default_" + Plan.workspaceId + "_" + order + ".json";
-            if (!new File(path).exists()) {
-                path = chameleonVenvPath + "data_default_" + Plan.workspaceId + "_init_replica.json";
-            }
-            BufferedReader fileReader = new BufferedReader((new InputStreamReader(new FileInputStream(path))));
-            String tempStr = "";
-            while ((tempStr = fileReader.readLine()) != null) {
-                chameleonStr += tempStr;
-            }
-            fileReader.close();
-            if (chameleonStr != "") {
-                JSONObject root = JSONObject.parseObject(chameleonStr);
-                JSONArray objects = root.getJSONArray(name);
-                Iterator iterator = objects.iterator();
-                int i = 0;
-                if (iterator.hasNext()) {
-                    String objectName = objects.getJSONObject(i).getString("name");
-                    int status = objects.getJSONObject(i).getInteger("status");
-                    ObjectStatus objectStatus = new ObjectStatus(objectName, status);
-                    objectStatusList.add(objectStatus);
-                }
-            }
-        } catch (FileNotFoundException e) {
-            LOGGER.error("File not found exception occurred in get chameleon table status.");
-        } catch (IOException e) {
-            LOGGER.error("IO exception occurred in get chameleon table status.");
-        }
-        return objectStatusList;
-    }
-
-    /**
-     * Change full status.
-     */
-    public static void changeFullStatus() {
-        ArrayList<TableStatus> tableStatusArrayList = Tools.getChameleonTableStatus();
-        ArrayList<ObjectStatus> viewStatusArrayList = Tools.getChameleonObjectStatus("view", "start_view_replica");
-        ArrayList<ObjectStatus> functionStatusArrayList = Tools.getChameleonObjectStatus("function", "start_func_replica");
-        ArrayList<ObjectStatus> triggerStatusArrayList = Tools.getChameleonObjectStatus("trigger", "start_trigger_replica");
-        ArrayList<ObjectStatus> procedureStatusArrayList = Tools.getChameleonObjectStatus("procedure", "start_proc_replica");
-        FullMigrationStatus fullMigrationStatus = new FullMigrationStatus(tableStatusArrayList, viewStatusArrayList, functionStatusArrayList, triggerStatusArrayList, procedureStatusArrayList);
-        String fullMigrationStatusString = JSON.toJSONString(fullMigrationStatus);
-        Tools.writeFile(fullMigrationStatusString, new File(PortalControl.portalWorkSpacePath + "status/full_migration.txt"), false);
-    }
-
-    /**
      * Read file string.
      *
      * @param file the file
@@ -1336,17 +1206,18 @@ public class Tools {
     public static String readFile(File file) {
         StringBuilder str = new StringBuilder();
         try {
-            BufferedReader fileReader = new BufferedReader((new InputStreamReader(new FileInputStream(file))));
-            String tempStr = "";
-            while ((tempStr = fileReader.readLine()) != null) {
-                str.append(tempStr);
+            if (file.exists()) {
+                BufferedReader fileReader = new BufferedReader((new InputStreamReader(new FileInputStream(file))));
+                String tempStr = "";
+                while ((tempStr = fileReader.readLine()) != null) {
+                    str.append(tempStr);
+                }
+                fileReader.close();
             }
-            fileReader.close();
         } catch (IOException e) {
             LOGGER.info("IO exception occurred in read file " + file.getAbsolutePath());
         }
         return str.toString();
-
     }
 
     /**
@@ -1396,58 +1267,6 @@ public class Tools {
     }
 
     /**
-     * Change incremental status int.
-     *
-     * @param sourceMigrationStatusPath      the source migration status path
-     * @param sinkMigrationStatusPath        the sink migration status path
-     * @param incrementalMigrationStatusPath the incremental migration status path
-     * @param count                          the count
-     * @return the int
-     */
-    public static int changeIncrementalStatus(String sourceMigrationStatusPath, String sinkMigrationStatusPath, String incrementalMigrationStatusPath, String count) {
-        int time = 0;
-        try {
-            String sourceStr = "";
-            sourceStr = Tools.readFile(new File(sourceMigrationStatusPath));
-            JSONObject sourceObject = JSONObject.parseObject(sourceStr);
-            int createCount = sourceObject.getInteger(count);
-            int sourceSpeed = sourceObject.getInteger("speed");
-            long sourceFirstTimestamp = sourceObject.getLong("timestamp");
-            String sinkStr = "";
-            sinkStr = Tools.readFile(new File(sinkMigrationStatusPath));
-            JSONObject sinkObject = JSONObject.parseObject(sinkStr);
-            int replayedCount = sinkObject.getInteger("replayedCount");
-            int sinkSpeed = sinkObject.getInteger("speed");
-            long sinkTimestamp = sinkObject.getLong("timestamp");
-            if (sinkTimestamp > sourceFirstTimestamp) {
-                String timeStr = String.valueOf(sourceFirstTimestamp + 1000 - sinkTimestamp);
-                time = Integer.parseInt(timeStr);
-                sourceStr = Tools.readFile(new File(sourceMigrationStatusPath));
-                JSONObject sourceSecondObject = JSONObject.parseObject(sourceStr);
-                createCount = sourceSecondObject.getInteger(count);
-                sourceSpeed = sourceSecondObject.getInteger("speed");
-            }
-            int rest = createCount - replayedCount;
-            Thread.sleep(time);
-            String incrementalMigrationString = "";
-            int status = 1;
-            if (PortalControl.status == Status.ERROR) {
-                status = 2;
-                String msg = "error";
-                IncrementalMigrationStatus incrementalMigrationStatus = new IncrementalMigrationStatus(status, createCount, sourceSpeed, sinkSpeed, rest, msg);
-                incrementalMigrationString = JSON.toJSONString(incrementalMigrationStatus);
-            } else {
-                IncrementalMigrationStatus incrementalMigrationStatus = new IncrementalMigrationStatus(status, createCount, sourceSpeed, sinkSpeed, rest);
-                incrementalMigrationString = JSON.toJSONString(incrementalMigrationStatus);
-            }
-            Tools.writeFile(incrementalMigrationString, new File(incrementalMigrationStatusPath), false);
-        } catch (InterruptedException e) {
-            LOGGER.error("Interrupted Exception");
-        }
-        return time;
-    }
-
-    /**
      * Read file not matches regex string.
      *
      * @param file  the file
@@ -1491,28 +1310,6 @@ public class Tools {
             LOGGER.info("IO exception occurred in read file " + path);
         }
         return str.toString();
-    }
-
-    /**
-     * Write portal status.
-     */
-    public static void writePortalStatus() {
-        try {
-            FileWriter fw = new FileWriter(new File(PortalControl.portalWorkSpacePath + "status/portal.txt"));
-            PortalStatusWriter portalStatusWriter;
-            if (PortalControl.status == Status.ERROR) {
-                portalStatusWriter = new PortalStatusWriter(PortalControl.status, System.currentTimeMillis(), PortalControl.errorMsg);
-            } else {
-                portalStatusWriter = new PortalStatusWriter(PortalControl.status, System.currentTimeMillis());
-            }
-            ThreadStatusController.portalStatusWriterArrayList.add(portalStatusWriter);
-            String str = JSON.toJSONString(ThreadStatusController.portalStatusWriterArrayList);
-            fw.write(str);
-            fw.flush();
-            fw.close();
-        } catch (IOException e) {
-            LOGGER.error("IOException occurred in writing file " + PortalControl.portalWorkSpacePath + "status/portal.txt" + ".");
-        }
     }
 
     /**
@@ -1584,7 +1381,7 @@ public class Tools {
         String config = Tools.getSinglePropertiesParameter("key.converter.schema.registry.url", configFile);
         config += "/config";
         String[] cmdParts = new String[]{"curl", "-X", "PUT", "-H", "Content-Type: application/vnd.schemaregistry.v1+json", "--data", "{\"compatibility\": \"NONE\"}", config};
-        RuntimeExecTools.executeOrderCurrentRuntime(cmdParts, 1000, log,"Run curl failed.");
+        RuntimeExecTools.executeOrderCurrentRuntime(cmdParts, 1000, log, "Run curl failed.");
     }
 
     /**
@@ -1617,7 +1414,10 @@ public class Tools {
     public static void stopPublicSoftware(String taskThreadName, String executeFile, String order, String name) {
         boolean fileExist = new File(executeFile).exists();
         boolean useSoftWare = Tools.usePublicSoftware(taskThreadName);
-        if (!Tools.checkAnotherProcessExist("-Dpath=" + PortalControl.portalControlPath)) {
+        ArrayList<String> criticalWordList = new ArrayList<>();
+        criticalWordList.add("-Dpath=" + PortalControl.portalControlPath);
+        criticalWordList.add(Parameter.PORTAL_NAME);
+        if (!Tools.checkAnotherProcessExist(criticalWordList)) {
             if (fileExist && useSoftWare) {
                 RuntimeExecTools.executeOrder(order, 3000, PortalControl.portalWorkSpacePath + "logs/error.log");
                 LOGGER.info("Stop " + name + ".");
@@ -1685,7 +1485,13 @@ public class Tools {
         return portId;
     }
 
-    public static boolean outputDatacheckStatus(String datacheckType){
+    /**
+     * Output datacheck status boolean.
+     *
+     * @param datacheckType the datacheck type
+     * @return the boolean
+     */
+    public static boolean outputDatacheckStatus(String datacheckType) {
         String checkSourceLogPath = PortalControl.portalWorkSpacePath + "logs/datacheck/source.log";
         boolean flag1 = Tools.outputStatus(checkSourceLogPath);
         String checkSinkLogPath = PortalControl.portalWorkSpacePath + "logs/datacheck/sink.log";
@@ -1693,10 +1499,16 @@ public class Tools {
         String checkLogPath = PortalControl.portalWorkSpacePath + "logs/datacheck/check.log";
         boolean flag3 = Tools.outputStatus(checkLogPath);
         boolean flag = flag1 && flag2 && flag3;
-        Tools.outputInformation(flag,datacheckType + " is running.",datacheckType + "has error.");
+        Tools.outputInformation(flag, datacheckType + " is running.", datacheckType + "has error.");
         return flag;
     }
 
+    /**
+     * Output status boolean.
+     *
+     * @param logPath the log path
+     * @return the boolean
+     */
     public static boolean outputStatus(String logPath) {
         boolean flag = true;
         StringBuilder str = new StringBuilder();
@@ -1718,6 +1530,38 @@ public class Tools {
                 flag = false;
                 LOGGER.error(errorStr);
                 LOGGER.error("Error occurred in " + logPath + ".You can stop plan or ignore the information.");
+            }
+        }
+        return flag;
+    }
+
+    public static boolean outputStatus(String path, ArrayList<TableStatus> tableStatusArrayList,String sign) {
+        boolean flag = true;
+        StringBuilder str = new StringBuilder();
+        if (new File(path).exists()) {
+            try {
+                BufferedReader fileReader = new BufferedReader((new InputStreamReader(new FileInputStream(path))));
+                String tempStr = "";
+                while ((tempStr = fileReader.readLine()) != null) {
+                    if (tempStr.contains("\"message\":")) {
+                        for (TableStatus tableStatus : tableStatusArrayList) {
+                            String schema = PortalControl.toolsMigrationParametersTable.get(Opengauss.DATABASE_SCHEMA);
+                            if (tempStr.contains(schema + "." + tableStatus.getName() + "_[0] checked success")) {
+
+                            }
+                        }
+                        str.append(tempStr).append(System.lineSeparator());
+                    }
+                }
+                fileReader.close();
+            } catch (IOException e) {
+                LOGGER.info("IO exception occurred in read file " + path);
+            }
+            String errorStr = str.toString();
+            if (!Objects.equals(errorStr, "")) {
+                flag = false;
+                LOGGER.error(errorStr);
+                LOGGER.error("Error occurred in " + path + ".You can stop plan or ignore the information.");
             }
         }
         return flag;
