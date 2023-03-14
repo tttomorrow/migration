@@ -77,6 +77,7 @@ public class CheckTaskFullDatacheck implements CheckTask {
         Tools.changeSinglePropertiesParameter("dataDir", PortalControl.portalControlPath + "tmp/zookeeper", kafkaPath + "config/zookeeper.properties");
         Tools.changeSinglePropertiesParameter("log.dirs", PortalControl.portalControlPath + "tmp/kafka-logs", kafkaPath + "config/server.properties");
         Tools.changeSingleYmlParameter("spring.extract.debezium-enable", false, PortalControl.portalWorkSpacePath + "config/datacheck/application-source.yml");
+        Tools.changeSingleYmlParameter("spring.extract.debezium-enable", false, PortalControl.portalWorkSpacePath + "config/datacheck/application-sink.yml");
         Tools.changeMigrationDatacheckParameters(PortalControl.toolsMigrationParametersTable);
     }
 
