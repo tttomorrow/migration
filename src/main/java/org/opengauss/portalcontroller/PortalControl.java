@@ -214,7 +214,7 @@ public class PortalControl {
         Task.initTaskProcessMap();
         threadCheckProcess.setName("threadCheckProcess");
         threadCheckProcess.start();
-        noinput = PortalControl.commandLineParameterStringMap.get(Command.Parameters.SKIP).equals("true");
+        noinput = true;
         threadGetOrder.start();
         if (noinput) {
             String order = commandLineParameterStringMap.get(Command.Parameters.ORDER);
@@ -269,6 +269,7 @@ public class PortalControl {
                 str = in.readLine();
                 if (str != null) {
                     str = str.replaceFirst(System.lineSeparator(), "");
+                    str = str.replaceAll("_", " ");
                     taskList.add(str);
                 } else {
                     break;
@@ -300,7 +301,6 @@ public class PortalControl {
         plan3.add("start mysql incremental migration");
         plan3.add("start mysql incremental migration datacheck");
         plan3.add("start mysql reverse migration");
-        plan3.add("start mysql reverse migration datacheck");
         planList.put("plan3", plan3);
     }
 
@@ -769,7 +769,6 @@ public class PortalControl {
         commandHandlerHashMap.put(Command.Start.Mysql.REVERSE, (event) -> startSingleTaskPlan(Command.Start.Mysql.REVERSE));
         commandHandlerHashMap.put(Command.Start.Mysql.FULL_CHECK, (event) -> startSingleTaskPlan(Command.Start.Mysql.FULL_CHECK));
         commandHandlerHashMap.put(Command.Start.Mysql.INCREMENTAL_CHECK, (event) -> startSingleTaskPlan(Command.Start.Mysql.INCREMENTAL_CHECK));
-        commandHandlerHashMap.put(Command.Start.Mysql.REVERSE_CHECK, (event) -> startSingleTaskPlan(Command.Start.Mysql.REVERSE_CHECK));
         commandHandlerHashMap.put(Command.Start.Plan.PLAN1, (event) -> startDefaultPlan("plan1"));
         commandHandlerHashMap.put(Command.Start.Plan.PLAN2, (event) -> startDefaultPlan("plan2"));
         commandHandlerHashMap.put(Command.Start.Plan.PLAN3, (event) -> startDefaultPlan("plan3"));
