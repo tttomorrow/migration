@@ -95,6 +95,7 @@ public class CheckTaskIncrementalDatacheck implements CheckTask {
         Tools.changeSinglePropertiesParameter("offset.storage.file.filename", PortalControl.portalControlPath + "tmp/connect.offsets", PortalControl.portalWorkSpacePath + "config/debezium/connect-avro-standalone.properties");
         Tools.changeMigrationDatacheckParameters(PortalControl.toolsMigrationParametersTable);
         Tools.changeSingleYmlParameter("spring.extract.debezium-enable", true, PortalControl.portalWorkSpacePath + "config/datacheck/application-source.yml");
+        Tools.changeSingleYmlParameter("spring.extract.debezium-enable", true, PortalControl.portalWorkSpacePath + "config/datacheck/application-sink.yml");
         String sourceTopic = Tools.getSinglePropertiesParameter("transforms.route.replacement", PortalControl.portalWorkSpacePath + "config/debezium/mysql-source.properties");
         Tools.changeSingleYmlParameter("spring.extract.debezium-topic", sourceTopic, PortalControl.portalWorkSpacePath + "config/datacheck/application-source.yml");
         String sinkTopic = Tools.getSinglePropertiesParameter("transforms.route.replacement", PortalControl.portalWorkSpacePath + "config/debezium/mysql-sink.properties");

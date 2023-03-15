@@ -28,9 +28,12 @@ import org.opengauss.portalcontroller.constant.MigrationParameters;
 import org.opengauss.portalcontroller.constant.Mysql;
 import org.opengauss.portalcontroller.constant.Offset;
 import org.opengauss.portalcontroller.constant.Opengauss;
+import org.opengauss.portalcontroller.constant.Parameter;
 import org.opengauss.portalcontroller.constant.Regex;
 import org.opengauss.portalcontroller.constant.Status;
 import org.opengauss.portalcontroller.software.Software;
+import org.opengauss.portalcontroller.status.ChangeStatusTools;
+import org.opengauss.portalcontroller.status.TableStatus;
 import org.opengauss.portalcontroller.status.ThreadStatusController;
 import org.slf4j.LoggerFactory;
 
@@ -157,6 +160,9 @@ public class PortalControl {
      */
     public static int startPort = 10000;
 
+    /**
+     * The constant portId.
+     */
     public static int portId = 1;
 
     /**
@@ -172,6 +178,8 @@ public class PortalControl {
      * The constant errorMsg.
      */
     public static String errorMsg = "";
+
+    public static String workspaceId = "";
 
     /**
      * The constant softwareList.
@@ -192,6 +200,7 @@ public class PortalControl {
         initCommandHandlerHashMap();
         String path = commandLineParameterStringMap.get(Command.Parameters.PATH);
         String workspaceId = commandLineParameterStringMap.get(Command.Parameters.ID);
+        PortalControl.workspaceId = workspaceId;
         portalControlPath = path;
         if (workspaceId.equals("")) {
             portalWorkSpacePath = path;
@@ -205,9 +214,7 @@ public class PortalControl {
         Task.initTaskProcessMap();
         threadCheckProcess.setName("threadCheckProcess");
         threadCheckProcess.start();
-        threadStatusController.setWorkspaceId(workspaceId);
-        threadStatusController.start();
-        noinput = PortalControl.commandLineParameterStringMap.get(Command.Parameters.SKIP).equals("true");
+        noinput = true;
         threadGetOrder.start();
         if (noinput) {
             String order = commandLineParameterStringMap.get(Command.Parameters.ORDER);
@@ -262,6 +269,7 @@ public class PortalControl {
                 str = in.readLine();
                 if (str != null) {
                     str = str.replaceFirst(System.lineSeparator(), "");
+                    str = str.replaceAll("_", " ");
                     taskList.add(str);
                 } else {
                     break;
@@ -293,7 +301,6 @@ public class PortalControl {
         plan3.add("start mysql incremental migration");
         plan3.add("start mysql incremental migration datacheck");
         plan3.add("start mysql reverse migration");
-        plan3.add("start mysql reverse migration datacheck");
         planList.put("plan3", plan3);
     }
 
@@ -322,10 +329,23 @@ public class PortalControl {
      * Show status.
      */
     public static void showStatus() {
-        if (!Plan.getCurrentTask().equals("")) {
-            LOGGER.info("Current task:" + Plan.getCurrentTask());
+        ArrayList<String> criticalWordList = new ArrayList<>();
+        criticalWordList.add("-Dpath=" + PortalControl.portalControlPath);
+        criticalWordList.add(Parameter.PORTAL_NAME);
+        criticalWordList.add("-Dworkspace.id=" + PortalControl.workspaceId);
+        if (Tools.checkAnotherProcessExist(criticalWordList)) {
+            LOGGER.info("Plan " + PortalControl.workspaceId + " is running.");
         } else {
-            LOGGER.info("No running plan.");
+            LOGGER.info("Plan " + PortalControl.workspaceId + " is not running.");
+        }
+        int status = ChangeStatusTools.getPortalStatus(threadStatusController);
+        LOGGER.info("Portal status: " + Status.HASHTABLE.get(status));
+        if (status < Status.START_INCREMENTAL_MIGRATION) {
+            ChangeStatusTools.outputChameleonStatus();
+        } else if (status < Status.START_REVERSE_MIGRATION) {
+            ChangeStatusTools.outputIncrementalStatus(PortalControl.portalWorkSpacePath + "status/incremental_migration.txt");
+        } else if (status < Status.ERROR) {
+            ChangeStatusTools.outputIncrementalStatus(PortalControl.portalWorkSpacePath + "status/reverse_migration.txt");
         }
     }
 
@@ -612,6 +632,8 @@ public class PortalControl {
      * Start plan.
      */
     public static void startPlan() {
+        threadStatusController.setWorkspaceId(workspaceId);
+        threadStatusController.start();
         String workspaceId = commandLineParameterStringMap.get(Command.Parameters.ID);
         Tools.generatePlanHistory(taskList);
         if (!Task.checkPlan(taskList)) {
@@ -747,7 +769,6 @@ public class PortalControl {
         commandHandlerHashMap.put(Command.Start.Mysql.REVERSE, (event) -> startSingleTaskPlan(Command.Start.Mysql.REVERSE));
         commandHandlerHashMap.put(Command.Start.Mysql.FULL_CHECK, (event) -> startSingleTaskPlan(Command.Start.Mysql.FULL_CHECK));
         commandHandlerHashMap.put(Command.Start.Mysql.INCREMENTAL_CHECK, (event) -> startSingleTaskPlan(Command.Start.Mysql.INCREMENTAL_CHECK));
-        commandHandlerHashMap.put(Command.Start.Mysql.REVERSE_CHECK, (event) -> startSingleTaskPlan(Command.Start.Mysql.REVERSE_CHECK));
         commandHandlerHashMap.put(Command.Start.Plan.PLAN1, (event) -> startDefaultPlan("plan1"));
         commandHandlerHashMap.put(Command.Start.Plan.PLAN2, (event) -> startDefaultPlan("plan2"));
         commandHandlerHashMap.put(Command.Start.Plan.PLAN3, (event) -> startDefaultPlan("plan3"));

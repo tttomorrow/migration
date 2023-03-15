@@ -33,7 +33,7 @@ public interface Debezium {
         String PORT = "database.port";
         String USER = "database.user";
         String PASSWORD = "database.password";
-        String WHITELIST = "database.whitelist";
+        String WHITELIST = "database.include.list";
         String NAME = "database.dbname";
     }
     interface Sink {

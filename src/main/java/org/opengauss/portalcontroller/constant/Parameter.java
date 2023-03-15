@@ -15,5 +15,4 @@ public interface Parameter {
     String CHECK_FULL = "Full migration datacheck";
     String CHECK_INCREMENTAL = "Incremental migration datacheck";
     String CHECK_REVERSE = "Reverse migration datacheck";
-
 }
