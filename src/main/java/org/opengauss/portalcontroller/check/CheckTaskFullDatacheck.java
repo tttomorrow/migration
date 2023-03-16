@@ -125,11 +125,7 @@ public class CheckTaskFullDatacheck implements CheckTask {
             if(!Tools.outputDatacheckStatus(Parameter.CHECK_FULL)){
                 break;
             }
-            try {
-                Thread.sleep(1500);
-            } catch (InterruptedException e) {
-                LOGGER.error("Interrupted exception occurred in running full migration datacheck.");
-            }
+            Tools.sleepThread(1500, "running full migration datacheck");
         }
     }
 

@@ -104,6 +104,12 @@ public class FullMigrationStatus {
 
     /**
      * Instantiates a new Full migration status.
+     */
+    public FullMigrationStatus() {
+    }
+
+    /**
+     * Instantiates a new Full migration status.
      *
      * @param table     the table
      * @param view      the view

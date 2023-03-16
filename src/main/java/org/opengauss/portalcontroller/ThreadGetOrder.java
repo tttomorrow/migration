@@ -16,12 +16,8 @@ public class ThreadGetOrder extends Thread {
     @Override
     public void run() {
         while (!exit && !Plan.stopPlan) {
-            try {
-                Tools.readInputOrder();
-                Thread.sleep(1000);
-            } catch (InterruptedException e) {
-                LOGGER.error("Interrupted exception occurred in getting order.");
-            }
+            Tools.readInputOrder();
+            Tools.sleepThread(1000, "getting order");
         }
     }
 }

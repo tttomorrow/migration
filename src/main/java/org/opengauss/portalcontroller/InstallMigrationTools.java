@@ -72,10 +72,10 @@ public class InstallMigrationTools {
         String pkgPath = initParameterHashtable.get(Parameter.PKG_PATH);
         if (download) {
             flag = RuntimeExecTools.download(pkgUrl, pkgPath);
-            Tools.outputResult(flag,"Download " + pkgUrl);
+            Tools.outputResult(flag, "Download " + pkgUrl);
         }
-        flag = Tools.installPackage(criticalFileList, pkgPath, pkgName, PortalControl.toolsConfigParametersTable.get(installPath),path);
-        Tools.outputResult(flag,"Install " + PortalControl.toolsConfigParametersTable.get(pkgName));
+        flag = Tools.installPackage(criticalFileList, pkgPath, pkgName, PortalControl.toolsConfigParametersTable.get(installPath), path);
+        Tools.outputResult(flag, "Install " + PortalControl.toolsConfigParametersTable.get(pkgName));
         return flag;
     }
 
@@ -114,7 +114,7 @@ public class InstallMigrationTools {
                 break;
             }
         }
-        Tools.outputResult(flag,Parameter.INSTALL_ALL_MIGRATION_TOOLS);
+        Tools.outputResult(flag, Parameter.INSTALL_ALL_MIGRATION_TOOLS);
     }
 
     /**
