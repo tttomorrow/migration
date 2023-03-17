@@ -179,6 +179,9 @@ public class PortalControl {
      */
     public static String errorMsg = "";
 
+    /**
+     * The constant workspaceId.
+     */
     public static String workspaceId = "";
 
     /**
@@ -212,6 +215,7 @@ public class PortalControl {
         Plan.createWorkspace(workspaceId);
         checkPath();
         Task.initTaskProcessMap();
+        Task.initTaskLogMap();
         threadCheckProcess.setName("threadCheckProcess");
         threadCheckProcess.start();
         noinput = true;
@@ -342,9 +346,9 @@ public class PortalControl {
         LOGGER.info("Portal status: " + Status.HASHTABLE.get(status));
         if (status < Status.START_INCREMENTAL_MIGRATION) {
             ChangeStatusTools.outputChameleonStatus();
-        } else if (status < Status.START_REVERSE_MIGRATION) {
+        } else if (status > Status.START_INCREMENTAL_MIGRATION && status < Status.START_REVERSE_MIGRATION) {
             ChangeStatusTools.outputIncrementalStatus(PortalControl.portalWorkSpacePath + "status/incremental_migration.txt");
-        } else if (status < Status.ERROR) {
+        } else if (status > Status.START_REVERSE_MIGRATION && status < Status.ERROR) {
             ChangeStatusTools.outputIncrementalStatus(PortalControl.portalWorkSpacePath + "status/reverse_migration.txt");
         }
     }

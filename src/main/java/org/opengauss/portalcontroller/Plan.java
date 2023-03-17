@@ -17,6 +17,7 @@ package org.opengauss.portalcontroller;
 import org.opengauss.portalcontroller.check.*;
 import org.opengauss.portalcontroller.constant.Command;
 import org.opengauss.portalcontroller.constant.Debezium;
+import org.opengauss.portalcontroller.constant.Regex;
 import org.opengauss.portalcontroller.constant.Status;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -132,6 +133,11 @@ public final class Plan {
     public static boolean runIncrementalMigration = false;
 
     /**
+     * The constant pause.
+     */
+    public static boolean pause = false;
+
+    /**
      * Get a instance of class plan.
      *
      * @param workspaceID the workspace id
@@ -212,6 +218,7 @@ public final class Plan {
                     }
                     Tools.waitForIncrementalSignal("Incremental migration has stopped.");
                     if (runReverseMigration || stopPlan) {
+                        Plan.pause = false;
                         break;
                     }
                     if (runIncrementalMigration) {
@@ -229,6 +236,7 @@ public final class Plan {
                     }
                     Tools.waitForReverseSignal("Reverse migration has stopped.");
                     if (stopPlan) {
+                        Plan.pause = false;
                         break;
                     }
                 }
@@ -276,10 +284,19 @@ public final class Plan {
                 if ((pid == -1) && (!PortalControl.commandLineParameterStringMap.get("action").equals("stop"))) {
                     if (thread.getMethodName().contains("Check") && !PortalControl.fullDatacheckFinished) {
                         cleanFullDataCheck = true;
+                    } else if (Plan.pause) {
+                        LOGGER.warn("Plan paused.Stop checking threads.");
+                        break;
                     } else {
                         String[] str = thread.getProcessName().split(" ");
                         LOGGER.error("Error message: Process " + str[0] + " exit abnormally or process " + str[0] + " has started.");
                         Plan.stopPlan = true;
+                        PortalControl.status = Status.ERROR;
+                        String logPath = thread.getLogPath();
+                        String errorStr = Tools.getErrorMsg(logPath);
+                        PortalControl.errorMsg = errorStr;
+                        LOGGER.warn(errorStr);
+                        LOGGER.warn("Please read " + logPath + " or error.log to get information.");
                         flag = false;
                     }
                 }
@@ -361,28 +378,24 @@ public final class Plan {
      * Stop all tasks.
      */
     public static void stopAllTasks() {
-        try {
-            Task task = new Task();
-            task.stopDataCheck();
-            task.stopDataCheckSink();
-            task.stopDataCheckSource();
-            task.stopReverseKafkaConnectSink();
-            Thread.sleep(100);
-            task.stopReverseKafkaConnectSource();
-            Thread.sleep(100);
-            task.stopKafkaConnectSink();
-            Thread.sleep(100);
-            task.stopKafkaConnectSource();
-            Thread.sleep(100);
-            task.stopKafkaSchema(toolsConfigParametersTable.get(Debezium.Confluent.PATH));
-            Thread.sleep(1000);
-            task.stopKafka(toolsConfigParametersTable.get(Debezium.Kafka.PATH));
-            Thread.sleep(1000);
-            task.stopZookeeper(toolsConfigParametersTable.get(Debezium.Kafka.PATH));
-            Thread.sleep(1000);
-        } catch (InterruptedException e) {
-            LOGGER.error("Interrupted exception occurred in stopping the plan.");
-        }
+        Task task = new Task();
+        task.stopDataCheck();
+        task.stopDataCheckSink();
+        task.stopDataCheckSource();
+        task.stopReverseKafkaConnectSink();
+        Tools.sleepThread(100, "stopping the plan");
+        task.stopReverseKafkaConnectSource();
+        Tools.sleepThread(100, "stopping the plan");
+        task.stopKafkaConnectSink();
+        Tools.sleepThread(100, "stopping the plan");
+        task.stopKafkaConnectSource();
+        Tools.sleepThread(100, "stopping the plan");
+        task.stopKafkaSchema(toolsConfigParametersTable.get(Debezium.Confluent.PATH));
+        Tools.sleepThread(1000, "stopping the plan");
+        task.stopKafka(toolsConfigParametersTable.get(Debezium.Kafka.PATH));
+        Tools.sleepThread(1000, "stopping the plan");
+        task.stopZookeeper(toolsConfigParametersTable.get(Debezium.Kafka.PATH));
+        Tools.sleepThread(1000, "stopping the plan");
     }
 }
 

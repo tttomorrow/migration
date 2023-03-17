@@ -953,16 +953,12 @@ public class Tools {
      * @param msg the msg
      */
     public static void waitForIncrementalSignal(String msg) {
-        try {
-            while (true) {
-                Thread.sleep(1000);
-                if (Plan.runReverseMigration || Plan.runIncrementalMigration || Plan.stopPlan) {
-                    LOGGER.info(msg);
-                    break;
-                }
+        while (true) {
+            Tools.sleepThread(1000, "waiting for signal");
+            if (Plan.runReverseMigration || Plan.runIncrementalMigration || Plan.stopPlan) {
+                LOGGER.info(msg);
+                break;
             }
-        } catch (InterruptedException e) {
-            LOGGER.error("Interrupted exception waiting for signal.");
         }
     }
 
@@ -972,16 +968,12 @@ public class Tools {
      * @param msg the msg
      */
     public static void waitForReverseSignal(String msg) {
-        try {
-            while (true) {
-                Thread.sleep(1000);
-                if (Plan.runReverseMigration || Plan.stopPlan) {
-                    LOGGER.info(msg);
-                    break;
-                }
+        while (true) {
+            Tools.sleepThread(1000, "waiting for signal");
+            if (Plan.runReverseMigration || Plan.stopPlan) {
+                LOGGER.info(msg);
+                break;
             }
-        } catch (InterruptedException e) {
-            LOGGER.error("Interrupted exception waiting for signal.");
         }
     }
 
@@ -1303,7 +1295,7 @@ public class Tools {
             String tempStr = "";
             while ((tempStr = fileReader.readLine()) != null) {
                 str.append(tempStr).append(System.lineSeparator());
-                LOGGER.info(tempStr);
+                LOGGER.warn(tempStr);
             }
             fileReader.close();
         } catch (IOException e) {
@@ -1499,7 +1491,7 @@ public class Tools {
         String checkLogPath = PortalControl.portalWorkSpacePath + "logs/datacheck/check.log";
         boolean flag3 = Tools.outputStatus(checkLogPath);
         boolean flag = flag1 && flag2 && flag3;
-        Tools.outputInformation(flag, datacheckType + " is running.", datacheckType + "has error.");
+        Tools.outputInformation(flag, datacheckType + " is running.", datacheckType + " has error.");
         return flag;
     }
 
@@ -1511,6 +1503,24 @@ public class Tools {
      */
     public static boolean outputStatus(String logPath) {
         boolean flag = true;
+        if (new File(logPath).exists()) {
+            String errorStr = getErrorMsg(logPath);
+            if (!Objects.equals(errorStr, "")) {
+                flag = false;
+                LOGGER.error(errorStr);
+                LOGGER.error("Error occurred in " + logPath + ".You can stop plan or ignore the information.");
+            }
+        }
+        return flag;
+    }
+
+    /**
+     * Gets error msg.
+     *
+     * @param logPath the log path
+     * @return the error msg
+     */
+    public static String getErrorMsg(String logPath) {
         StringBuilder str = new StringBuilder();
         if (new File(logPath).exists()) {
             try {
@@ -1525,45 +1535,21 @@ public class Tools {
             } catch (IOException e) {
                 LOGGER.info("IO exception occurred in read file " + logPath);
             }
-            String errorStr = str.toString();
-            if (!Objects.equals(errorStr, "")) {
-                flag = false;
-                LOGGER.error(errorStr);
-                LOGGER.error("Error occurred in " + logPath + ".You can stop plan or ignore the information.");
-            }
         }
-        return flag;
+        return str.toString();
     }
 
-    public static boolean outputStatus(String path, ArrayList<TableStatus> tableStatusArrayList,String sign) {
-        boolean flag = true;
-        StringBuilder str = new StringBuilder();
-        if (new File(path).exists()) {
-            try {
-                BufferedReader fileReader = new BufferedReader((new InputStreamReader(new FileInputStream(path))));
-                String tempStr = "";
-                while ((tempStr = fileReader.readLine()) != null) {
-                    if (tempStr.contains("\"message\":")) {
-                        for (TableStatus tableStatus : tableStatusArrayList) {
-                            String schema = PortalControl.toolsMigrationParametersTable.get(Opengauss.DATABASE_SCHEMA);
-                            if (tempStr.contains(schema + "." + tableStatus.getName() + "_[0] checked success")) {
-
-                            }
-                        }
-                        str.append(tempStr).append(System.lineSeparator());
-                    }
-                }
-                fileReader.close();
-            } catch (IOException e) {
-                LOGGER.info("IO exception occurred in read file " + path);
-            }
-            String errorStr = str.toString();
-            if (!Objects.equals(errorStr, "")) {
-                flag = false;
-                LOGGER.error(errorStr);
-                LOGGER.error("Error occurred in " + path + ".You can stop plan or ignore the information.");
-            }
+    /**
+     * Sleep thread.
+     *
+     * @param time the time
+     * @param name the name
+     */
+    public static void sleepThread(int time, String name) {
+        try {
+            Thread.sleep(time);
+        } catch (InterruptedException e) {
+            LOGGER.error("Interrupted exception occurred in " + name + ".");
         }
-        return flag;
     }
 }

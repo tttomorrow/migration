@@ -145,16 +145,14 @@ public class CheckTaskReverseMigration implements CheckTask {
     @Override
     public void checkEnd() {
         while (!Plan.stopPlan && !Plan.stopReverseMigration && !PortalControl.taskList.contains("start mysql reverse migration datacheck")) {
-            try {
-                LOGGER.info("Reverse migration is running...");
-                Thread.sleep(1000);
-            } catch (InterruptedException e) {
-                LOGGER.error("Interrupted exception occurred in running reverse migraiton.");
-            }
+            LOGGER.info("Reverse migration is running...");
+            Tools.sleepThread(1000, "running reverse migraiton");
         }
         if (Plan.stopReverseMigration) {
             if (PortalControl.status != Status.ERROR) {
                 PortalControl.status = Status.REVERSE_MIGRATION_FINISHED;
+                Plan.pause = true;
+                Tools.sleepThread(50, "pausing the plan");
             }
             Task.stopTaskMethod(Method.Run.REVERSE_CONNECT_SINK);
             Task.stopTaskMethod(Method.Run.REVERSE_CONNECT_SOURCE);

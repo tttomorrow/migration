@@ -50,7 +50,7 @@ import java.util.List;
 public class Task {
     private static HashMap<String, String> taskProcessMap = new HashMap<>();
     private static final org.slf4j.Logger LOGGER = LoggerFactory.getLogger(Task.class);
-
+    private static HashMap<String, String> taskLogMap = new HashMap<>();
 
     /**
      * All valid task list.
@@ -92,6 +92,24 @@ public class Task {
     public static HashMap<String, PortalControl.EventHandler> stopTaskHandlerHashMap = new HashMap<>();
 
     /**
+     * Gets task log map.
+     *
+     * @return the task log map
+     */
+    public static HashMap<String, String> getTaskLogMap() {
+        return taskLogMap;
+    }
+
+    /**
+     * Sets task log map.
+     *
+     * @param taskLogMap the task log map
+     */
+    public static void setTaskLogMap(HashMap<String, String> taskLogMap) {
+        Task.taskLogMap = taskLogMap;
+    }
+
+    /**
      * Init parameter taskProcessMap.This parameter is a map of method name and process name which can be find uniquely.
      */
     public static void initTaskProcessMap() {
@@ -110,6 +128,24 @@ public class Task {
         tempTaskProcessMap.put(Method.Run.CHECK_SINK, "java -Dspring.config.additional-location=" + PortalControl.portalWorkSpacePath + "config/datacheck/application-sink.yml -jar " + datacheckPath + "datachecker-extract-0.0.1.jar --spring.profiles.active=sink");
         tempTaskProcessMap.put(Method.Run.CHECK, "java -Dspring.config.additional-location=" + PortalControl.portalWorkSpacePath + "config/datacheck/application.yml -jar " + datacheckPath + "datachecker-check-0.0.1.jar");
         setTaskProcessMap(tempTaskProcessMap);
+    }
+
+    /**
+     * Init task log map.
+     */
+    public static void initTaskLogMap() {
+        HashMap<String, String> tempTaskLogMap = new HashMap<>();
+        tempTaskLogMap.put(Method.Run.ZOOKEEPER, PortalControl.portalWorkSpacePath + "logs/debezium/server.log");
+        tempTaskLogMap.put(Method.Run.KAFKA, PortalControl.portalWorkSpacePath + "logs/debezium/server.log");
+        tempTaskLogMap.put(Method.Run.REGISTRY, PortalControl.portalWorkSpacePath + "logs/debezium/schema-registry.log");
+        tempTaskLogMap.put(Method.Run.CONNECT_SOURCE, PortalControl.portalWorkSpacePath + "logs/debezium/connect.log");
+        tempTaskLogMap.put(Method.Run.CONNECT_SINK, PortalControl.portalWorkSpacePath + "logs/debezium/connect.log");
+        tempTaskLogMap.put(Method.Run.REVERSE_CONNECT_SOURCE, PortalControl.portalWorkSpacePath + "logs/debezium/reverse_connect.log");
+        tempTaskLogMap.put(Method.Run.REVERSE_CONNECT_SINK, PortalControl.portalWorkSpacePath + "logs/debezium/reverse_connect.log");
+        tempTaskLogMap.put(Method.Run.CHECK_SOURCE, PortalControl.portalWorkSpacePath + "logs/datacheck/source.log");
+        tempTaskLogMap.put(Method.Run.CHECK_SINK, PortalControl.portalWorkSpacePath + "logs/datacheck/sink.log");
+        tempTaskLogMap.put(Method.Run.CHECK, PortalControl.portalWorkSpacePath + "logs/datacheck/check.log");
+        setTaskLogMap(tempTaskLogMap);
     }
 
     /**
@@ -164,27 +200,24 @@ public class Task {
             return;
         }
         if (taskProcessMap.containsKey(methodName)) {
-            try {
-                String methodProcessName = taskProcessMap.get(methodName);
-                int pid = Tools.getCommandPid(methodProcessName);
-                List<RunningTaskThread> runningTaskThreadThreadList = Plan.getRunningTaskThreadsList();
-                RunningTaskThread runningTaskThread = new RunningTaskThread(methodName, methodProcessName);
-                if (pid == -1) {
-                    runningTaskThread.startTask();
-                    runningTaskThread.setPid(Tools.getCommandPid(methodProcessName));
-                    runningTaskThreadThreadList.add(runningTaskThread);
-                    Plan.setRunningTaskThreadsList(runningTaskThreadThreadList);
-                    Thread.sleep(sleepTime);
-                } else if (runningTaskThreadThreadList.contains(runningTaskThread)) {
-                    Thread.sleep(sleepTime);
-                    LOGGER.info(methodName + " has started.");
-                } else {
-                    Thread.sleep(sleepTime);
-                    LOGGER.info(methodName + " has started.");
-                    runningTaskThread.setPid(Tools.getCommandPid(methodProcessName));
-                }
-            } catch (InterruptedException e) {
-                LOGGER.error("Interrupted exception occurred in starting task.");
+            String methodProcessName = taskProcessMap.get(methodName);
+            int pid = Tools.getCommandPid(methodProcessName);
+            List<RunningTaskThread> runningTaskThreadThreadList = Plan.getRunningTaskThreadsList();
+            String logPath = taskLogMap.get(methodName);
+            RunningTaskThread runningTaskThread = new RunningTaskThread(methodName, methodProcessName, logPath);
+            if (pid == -1) {
+                runningTaskThread.startTask();
+                runningTaskThread.setPid(Tools.getCommandPid(methodProcessName));
+                runningTaskThreadThreadList.add(runningTaskThread);
+                Plan.setRunningTaskThreadsList(runningTaskThreadThreadList);
+                Tools.sleepThread(sleepTime, "starting task");
+            } else if (runningTaskThreadThreadList.contains(runningTaskThread)) {
+                Tools.sleepThread(sleepTime, "starting task");
+                LOGGER.info(methodName + " has started.");
+            } else {
+                Tools.sleepThread(sleepTime, "starting task");
+                LOGGER.info(methodName + " has started.");
+                runningTaskThread.setPid(Tools.getCommandPid(methodProcessName));
             }
         }
     }
@@ -249,30 +282,27 @@ public class Task {
      * @param isInstantCommand the is instant command
      */
     public void checkChameleonReplicaOrder(String order, Hashtable<String, String> parametersTable, boolean isInstantCommand) {
-        try {
-            if (Plan.stopPlan) {
-                return;
+        if (Plan.stopPlan) {
+            return;
+        }
+        String endFlag = order + " finished";
+        while (!Plan.stopPlan) {
+            Tools.sleepThread(1000, "starting task");
+            String processString = "chameleon " + order + " --config default_" + Plan.workspaceId;
+            LOGGER.info(order + " running");
+            boolean processQuit = Tools.getCommandPid(processString) == -1;
+            boolean finished = Tools.lastLine(PortalControl.portalWorkSpacePath + "logs/full_migration.log").contains(endFlag);
+            if (processQuit && finished) {
+                LOGGER.info(order + " finished");
+                break;
+            } else if (processQuit) {
+                LOGGER.error("Error message: Process " + processString + " exit abnormally.Please read " + PortalControl.portalWorkSpacePath + "logs/full_migration.log or error.log to get information.");
+                PortalControl.status = Status.ERROR;
+                PortalControl.errorMsg = Tools.readFileNotMatchesRegex(new File(PortalControl.portalWorkSpacePath + "logs/full_migration.log"), Regex.CHAMELEON_LOG);
+                LOGGER.warn(PortalControl.errorMsg);
+                Plan.stopPlan = true;
+                break;
             }
-            String endFlag = order + " finished";
-            while (!Plan.stopPlan) {
-                Thread.sleep(1000);
-                String processString = "chameleon " + order + " --config default_" + Plan.workspaceId;
-                LOGGER.info(order + " running");
-                boolean processQuit = Tools.getCommandPid(processString) == -1;
-                boolean finished = Tools.lastLine(PortalControl.portalWorkSpacePath + "logs/full_migration.log").contains(endFlag);
-                if (processQuit && finished) {
-                    LOGGER.info(order + " finished");
-                    break;
-                } else if (processQuit) {
-                    LOGGER.error("Error message: Process " + processString + " exit abnormally.Please read " + PortalControl.portalWorkSpacePath + "logs/full_migration.log or error.log to get information.");
-                    PortalControl.status = Status.ERROR;
-                    PortalControl.errorMsg = Tools.readFileNotMatchesRegex(new File(PortalControl.portalWorkSpacePath + "logs/full_migration.log"), Regex.CHAMELEON_LOG);
-                    Plan.stopPlan = true;
-                    break;
-                }
-            }
-        } catch (InterruptedException e) {
-            LOGGER.error("Interrupted exception occurred in starting task.");
         }
     }
 

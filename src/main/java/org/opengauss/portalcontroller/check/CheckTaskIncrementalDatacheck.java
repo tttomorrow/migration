@@ -55,14 +55,14 @@ public class CheckTaskIncrementalDatacheck implements CheckTask {
         softwareArrayList.add(new Kafka());
         softwareArrayList.add(new Confluent());
         softwareArrayList.add(new Datacheck());
-        boolean flag = InstallMigrationTools.installMigrationTools(softwareArrayList,download);
+        boolean flag = InstallMigrationTools.installMigrationTools(softwareArrayList, download);
         return flag;
     }
 
     @Override
     public boolean installAllPackages() {
         CheckTask checkTask = new CheckTaskIncrementalDatacheck();
-        boolean flag = InstallMigrationTools.installSingleMigrationTool(checkTask,MigrationParameters.Install.CHECK);
+        boolean flag = InstallMigrationTools.installSingleMigrationTool(checkTask, MigrationParameters.Install.CHECK);
         return flag;
     }
 
@@ -128,19 +128,17 @@ public class CheckTaskIncrementalDatacheck implements CheckTask {
 
     public void checkEnd() {
         while (!Plan.stopPlan && !Plan.stopIncrementalMigration) {
-            try {
-                LOGGER.info("Incremental migration is running...");
-                if(!Tools.outputDatacheckStatus(Parameter.CHECK_INCREMENTAL)){
-                    break;
-                }
-                Thread.sleep(1000);
-            } catch (InterruptedException e) {
-                LOGGER.error("Interrupted exception occurred in running incremental migraiton datacheck.");
+            LOGGER.info("Incremental migration is running...");
+            if (!Tools.outputDatacheckStatus(Parameter.CHECK_INCREMENTAL)) {
+                break;
             }
+            Tools.sleepThread(1000, "running incremental migraiton datacheck");
         }
         if (Plan.stopIncrementalMigration) {
             if (PortalControl.status != Status.ERROR) {
                 PortalControl.status = Status.INCREMENTAL_MIGRATION_FINISHED;
+                Plan.pause = true;
+                Tools.sleepThread(50, "pausing the plan");
             }
             Task.stopTaskMethod(Method.Run.CHECK);
             Task.stopTaskMethod(Method.Run.CHECK_SINK);
@@ -150,13 +148,13 @@ public class CheckTaskIncrementalDatacheck implements CheckTask {
         }
     }
 
-    public void uninstall(){
+    public void uninstall() {
         String errorPath = PortalControl.portalControlPath + "logs/error.log";
         ArrayList<String> filePaths = new ArrayList<>();
         filePaths.add(PortalControl.toolsConfigParametersTable.get(Debezium.PATH));
         filePaths.add(PortalControl.portalControlPath + "tmp/kafka-logs");
         filePaths.add(PortalControl.portalControlPath + "tmp/zookeeper");
         filePaths.add(PortalControl.toolsConfigParametersTable.get(Check.PATH));
-        InstallMigrationTools.removeSingleMigrationToolFiles(filePaths,errorPath);
+        InstallMigrationTools.removeSingleMigrationToolFiles(filePaths, errorPath);
     }
 }

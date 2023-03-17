@@ -104,8 +104,9 @@ public class RuntimeExecTools {
      * @param cmdParts       the cmd parts
      * @param time           the time
      * @param outputFilePath the output file path
+     * @param errorLog       the error log
      */
-    public static void executeOrderCurrentRuntime(String[] cmdParts, int time, String outputFilePath,String errorLog) {
+    public static void executeOrderCurrentRuntime(String[] cmdParts, int time, String outputFilePath, String errorLog) {
         try {
             Process process = Runtime.getRuntime().exec(cmdParts);
             String errorStr = getInputStreamString(process.getErrorStream());
@@ -122,9 +123,9 @@ public class RuntimeExecTools {
                 String str = bufferedReader.readLine();
                 bufferedReader.close();
                 BufferedWriter bufferedWriter = new BufferedWriter(new FileWriter(outputFilePath, true));
-                if(str != null && !str.equals("")){
+                if (str != null && !str.equals("")) {
                     bufferedWriter.write(str);
-                }else{
+                } else {
                     LOGGER.error(errorLog);
                 }
                 bufferedWriter.flush();
@@ -196,9 +197,9 @@ public class RuntimeExecTools {
         if (file.exists() && file.isFile()) {
             LOGGER.info("File " + path + packageName + " already exists.Skip the download package.");
             flag = false;
-        }else if(file.exists()){
+        } else if (file.exists()) {
             LOGGER.error("Directory " + path + packageName + " already exists.Please rename the directory.");
-        }else{
+        } else {
             String command = "wget -c -P " + path + " " + url + " --no-check-certificate";
             executeOrder(command, 600000, PortalControl.portalControlPath + "logs/error.log");
             LOGGER.info("Download file " + url + " to " + path + " finished.");
@@ -232,18 +233,19 @@ public class RuntimeExecTools {
      *
      * @param filePath  Filepath.
      * @param directory the directory
+     * @param recovery  the recovery
      */
     public static void copyFile(String filePath, String directory, boolean recovery) {
         File file = new File(filePath);
-        if(file.exists()){
+        if (file.exists()) {
             String fileName = file.getName();
-            String newFilePath =  directory + fileName;
+            String newFilePath = directory + fileName;
             boolean exist = new File(newFilePath).exists();
             if (!exist || recovery) {
                 String command = "cp -R " + filePath + " " + directory;
                 executeOrder(command, 60000, PortalControl.portalWorkSpacePath + "logs/error.log");
             }
-        }else{
+        } else {
             LOGGER.error("File " + filePath + "not exist.");
         }
     }

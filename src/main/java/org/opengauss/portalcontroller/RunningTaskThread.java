@@ -26,6 +26,7 @@ public class RunningTaskThread {
     private String methodName;
     private String processName;
     private int pid;
+    private String logPath;
 
     /**
      * Init a instance of RunningTaskThread.
@@ -59,6 +60,19 @@ public class RunningTaskThread {
         this.methodName = methodName;
         this.processName = processName;
         this.pid = pid;
+    }
+
+    /**
+     * Instantiates a new Running task thread.
+     *
+     * @param methodName  the method name
+     * @param processName the process name
+     * @param logPath     the log path
+     */
+    public RunningTaskThread(String methodName, String processName, String logPath) {
+        this.methodName = methodName;
+        this.processName = processName;
+        this.logPath = logPath;
     }
 
     /**
@@ -113,6 +127,24 @@ public class RunningTaskThread {
      */
     public void setProcessName(String processName) {
         this.processName = processName;
+    }
+
+    /**
+     * Gets log path.
+     *
+     * @return the log path
+     */
+    public String getLogPath() {
+        return logPath;
+    }
+
+    /**
+     * Sets log path.
+     *
+     * @param logPath the log path
+     */
+    public void setLogPath(String logPath) {
+        this.logPath = logPath;
     }
 
     /**
