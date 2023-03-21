@@ -57,6 +57,8 @@ public class CheckTaskIncrementalMigration implements CheckTask {
         String kafkaPath = hashtable.get(Debezium.Kafka.PATH);
         Tools.changeSinglePropertiesParameter("dataDir", PortalControl.portalControlPath + "tmp/zookeeper", kafkaPath + "config/zookeeper.properties");
         Tools.changeSinglePropertiesParameter("log.dirs", PortalControl.portalControlPath + "tmp/kafka-logs", kafkaPath + "config/server.properties");
+        Tools.changeSinglePropertiesParameter("zookeeper.connection.timeout.ms", "30000", kafkaPath + "config/server.properties");
+        Tools.changeSinglePropertiesParameter("zookeeper.session.timeout.ms", "30000", kafkaPath + "config/server.properties");
         String sourceConfigPath = PortalControl.portalWorkSpacePath + "config/debezium/mysql-source.properties";
         String sinkConfigPath = PortalControl.portalWorkSpacePath + "config/debezium/mysql-sink.properties";
         Hashtable<String, String> hashtable1 = new Hashtable<>();

@@ -92,6 +92,8 @@ public class CheckTaskIncrementalDatacheck implements CheckTask {
         String kafkaPath = hashtable.get(Debezium.Kafka.PATH);
         Tools.changeSinglePropertiesParameter("dataDir", PortalControl.portalControlPath + "tmp/zookeeper", kafkaPath + "config/zookeeper.properties");
         Tools.changeSinglePropertiesParameter("log.dirs", PortalControl.portalControlPath + "tmp/kafka-logs", kafkaPath + "config/server.properties");
+        Tools.changeSinglePropertiesParameter("zookeeper.connection.timeout.ms", "30000", kafkaPath + "config/server.properties");
+        Tools.changeSinglePropertiesParameter("zookeeper.session.timeout.ms", "30000", kafkaPath + "config/server.properties");
         Tools.changeSinglePropertiesParameter("offset.storage.file.filename", PortalControl.portalControlPath + "tmp/connect.offsets", PortalControl.portalWorkSpacePath + "config/debezium/connect-avro-standalone.properties");
         Tools.changeMigrationDatacheckParameters(PortalControl.toolsMigrationParametersTable);
         Tools.changeSingleYmlParameter("spring.extract.debezium-enable", true, PortalControl.portalWorkSpacePath + "config/datacheck/application-source.yml");
