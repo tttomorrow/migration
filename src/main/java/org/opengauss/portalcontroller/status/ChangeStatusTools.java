@@ -2,6 +2,7 @@ package org.opengauss.portalcontroller.status;
 
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
+import com.alibaba.fastjson.JSONException;
 import com.alibaba.fastjson.JSONObject;
 import org.opengauss.portalcontroller.Plan;
 import org.opengauss.portalcontroller.PortalControl;
@@ -150,7 +151,15 @@ public class ChangeStatusTools {
      * Change full status.
      */
     public static void changeFullStatus() {
-        String fullMigrationStatusString = JSON.toJSONString(getAllChameleonStatus());
+        FullMigrationStatus tempFullMigrationStatus;
+        String fullMigrationStatusString = "";
+        try {
+            tempFullMigrationStatus = getAllChameleonStatus();
+        } catch (JSONException e) {
+            tempFullMigrationStatus = ThreadStatusController.fullMigrationStatus;
+        }
+        ThreadStatusController.fullMigrationStatus = tempFullMigrationStatus;
+        fullMigrationStatusString = JSON.toJSONString(ThreadStatusController.fullMigrationStatus);
         Tools.writeFile(fullMigrationStatusString, new File(PortalControl.portalWorkSpacePath + "status/full_migration.txt"), false);
     }
 
@@ -165,44 +174,44 @@ public class ChangeStatusTools {
      */
     public static int changeIncrementalStatus(String sourceMigrationStatusPath, String sinkMigrationStatusPath, String incrementalMigrationStatusPath, String count) {
         int time = 0;
-        try {
-            String sourceStr = "";
+        String sourceStr = "";
+        sourceStr = Tools.readFile(new File(sourceMigrationStatusPath));
+        JSONObject sourceObject = JSONObject.parseObject(sourceStr);
+        int createCount = sourceObject.getInteger(count);
+        int sourceSpeed = sourceObject.getInteger("speed");
+        long sourceFirstTimestamp = sourceObject.getLong("timestamp");
+        String sinkStr = "";
+        sinkStr = Tools.readFile(new File(sinkMigrationStatusPath));
+        JSONObject sinkObject = JSONObject.parseObject(sinkStr);
+        int replayedCount = sinkObject.getInteger("replayedCount");
+        int sinkSpeed = sinkObject.getInteger("speed");
+        long sinkTimestamp = sinkObject.getLong("timestamp");
+        if (sinkTimestamp > sourceFirstTimestamp) {
+            String timeStr = String.valueOf(sourceFirstTimestamp + 1000 - sinkTimestamp);
+            time = Integer.parseInt(timeStr);
             sourceStr = Tools.readFile(new File(sourceMigrationStatusPath));
-            JSONObject sourceObject = JSONObject.parseObject(sourceStr);
-            int createCount = sourceObject.getInteger(count);
-            int sourceSpeed = sourceObject.getInteger("speed");
-            long sourceFirstTimestamp = sourceObject.getLong("timestamp");
-            String sinkStr = "";
-            sinkStr = Tools.readFile(new File(sinkMigrationStatusPath));
-            JSONObject sinkObject = JSONObject.parseObject(sinkStr);
-            int replayedCount = sinkObject.getInteger("replayedCount");
-            int sinkSpeed = sinkObject.getInteger("speed");
-            long sinkTimestamp = sinkObject.getLong("timestamp");
-            if (sinkTimestamp > sourceFirstTimestamp) {
-                String timeStr = String.valueOf(sourceFirstTimestamp + 1000 - sinkTimestamp);
-                time = Integer.parseInt(timeStr);
-                sourceStr = Tools.readFile(new File(sourceMigrationStatusPath));
-                JSONObject sourceSecondObject = JSONObject.parseObject(sourceStr);
-                createCount = sourceSecondObject.getInteger(count);
-                sourceSpeed = sourceSecondObject.getInteger("speed");
-            }
-            int rest = createCount - replayedCount;
-            Thread.sleep(time);
-            String incrementalMigrationString = "";
-            int status = Status.Incremental.RUNNING;
-            if (PortalControl.status == Status.ERROR) {
-                status = Status.Incremental.ERROR;
-                String msg = "error";
-                IncrementalMigrationStatus incrementalMigrationStatus = new IncrementalMigrationStatus(status, createCount, sourceSpeed, sinkSpeed, rest, msg);
-                incrementalMigrationString = JSON.toJSONString(incrementalMigrationStatus);
-            } else {
-                IncrementalMigrationStatus incrementalMigrationStatus = new IncrementalMigrationStatus(status, createCount, sourceSpeed, sinkSpeed, rest);
-                incrementalMigrationString = JSON.toJSONString(incrementalMigrationStatus);
-            }
-            Tools.writeFile(incrementalMigrationString, new File(incrementalMigrationStatusPath), false);
-        } catch (InterruptedException e) {
-            LOGGER.error("Interrupted Exception");
+            JSONObject sourceSecondObject = JSONObject.parseObject(sourceStr);
+            createCount = sourceSecondObject.getInteger(count);
+            sourceSpeed = sourceSecondObject.getInteger("speed");
         }
+        int rest = createCount - replayedCount;
+        if (time > 1000) {
+            time = 1000;
+        }
+        Tools.sleepThread(time, "writing the status");
+        String incrementalMigrationString = "";
+        int status = Status.Incremental.RUNNING;
+        if (PortalControl.status == Status.ERROR) {
+            status = Status.Incremental.ERROR;
+            String msg = "error";
+            IncrementalMigrationStatus incrementalMigrationStatus = new IncrementalMigrationStatus(status, createCount, sourceSpeed, sinkSpeed, rest, msg);
+            incrementalMigrationString = JSON.toJSONString(incrementalMigrationStatus);
+        } else {
+            IncrementalMigrationStatus incrementalMigrationStatus = new IncrementalMigrationStatus(status, createCount, sourceSpeed, sinkSpeed, rest);
+            incrementalMigrationString = JSON.toJSONString(incrementalMigrationStatus);
+        }
+        Tools.writeFile(incrementalMigrationString, new File(incrementalMigrationStatusPath), false);
+
         return time;
     }
 
@@ -274,19 +283,25 @@ public class ChangeStatusTools {
      */
     public static void outputIncrementalStatus(String path) {
         String tempStr = Tools.readFile(new File(path));
-        JSONObject root = JSONObject.parseObject(tempStr);
-        int status = root.getInteger("status");
-        int count = root.getInteger("count");
-        int sourceSpeed = root.getInteger("sourceSpeed");
-        int sinkSpeed = root.getInteger("sinkSpeed");
-        int rest = root.getInteger("rest");
-        String msg = root.getString("msg");
-        if (status == Status.Incremental.RUNNING) {
-            LOGGER.info("Incremental migration status: running");
-        } else {
-            LOGGER.info("Incremental migration status: error, message: " + msg);
+        if (!tempStr.equals("")) {
+            JSONObject root = JSONObject.parseObject(tempStr);
+            int status = root.getInteger("status");
+            int count = root.getInteger("count");
+            int sourceSpeed = root.getInteger("sourceSpeed");
+            int sinkSpeed = root.getInteger("sinkSpeed");
+            int rest = root.getInteger("rest");
+            String msg = root.getString("msg");
+            if (status == Status.Incremental.RUNNING && PortalControl.status == Status.RUNNING_INCREMENTAL_MIGRATION) {
+                LOGGER.info("Incremental migration status: running");
+            } else if (status == Status.Incremental.RUNNING && PortalControl.status == Status.INCREMENTAL_MIGRATION_FINISHED) {
+                LOGGER.info("Incremental migration status: finished");
+            } else {
+                PortalControl.status = Status.ERROR;
+                PortalControl.errorMsg = msg;
+                LOGGER.info("Incremental migration status: error, message: " + msg);
+            }
+            LOGGER.info("Count: " + count + ", sourceSpeed: " + sourceSpeed + ", sinkSpeed: " + sinkSpeed + ", rest: " + rest);
         }
-        LOGGER.info("Count: " + count + ", sourceSpeed: " + sourceSpeed + ", sinkSpeed: " + sinkSpeed + ", rest: " + rest);
     }
 
     /**

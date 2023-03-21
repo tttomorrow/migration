@@ -36,15 +36,8 @@ public class ThreadCheckProcess extends Thread implements Runnable {
      */
     @Override
     public void run() {
-        while (true) {
-            try {
-                Thread.sleep(1000);
-                if (exit || Plan.stopPlan || !Plan.checkRunningThreads()) {
-                    break;
-                }
-            } catch (InterruptedException e) {
-                LOGGER.error("Interrupted exception occurred in checking process.");
-            }
+        while (!exit && !Plan.stopPlan && Plan.checkRunningThreads()) {
+            Tools.sleepThread(1000, "checking process");
         }
     }
 }

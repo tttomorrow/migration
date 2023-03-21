@@ -118,17 +118,15 @@ public class CheckTaskIncrementalMigration implements CheckTask {
     @Override
     public void checkEnd() {
         while (!Plan.stopPlan && !Plan.stopIncrementalMigration && !PortalControl.taskList.contains("start mysql incremental migration datacheck")) {
-            try {
-                LOGGER.info("Incremental migration is running...");
-                Thread.sleep(1000);
-            } catch (InterruptedException e) {
-                LOGGER.error("Interrupted exception occurred in running incremental migraiton.");
-            }
+            LOGGER.info("Incremental migration is running...");
+            Tools.sleepThread(1000,"running incremental migraiton");
         }
         if (Plan.stopIncrementalMigration) {
             Task task = new Task();
             if (PortalControl.status != Status.ERROR) {
                 PortalControl.status = Status.INCREMENTAL_MIGRATION_FINISHED;
+                Plan.pause = true;
+                Tools.sleepThread(50,"pausing the plan");
             }
             task.stopTaskMethod(Method.Run.CONNECT_SINK);
             task.stopTaskMethod(Method.Run.CONNECT_SOURCE);
