@@ -59,6 +59,8 @@ public class CheckTaskReverseMigration implements CheckTask {
         String kafkaPath = hashtable.get(Debezium.Kafka.PATH);
         Tools.changeSinglePropertiesParameter("dataDir", PortalControl.portalControlPath + "tmp/zookeeper", kafkaPath + "config/zookeeper.properties");
         Tools.changeSinglePropertiesParameter("log.dirs", PortalControl.portalControlPath + "tmp/kafka-logs", kafkaPath + "config/server.properties");
+        Tools.changeSinglePropertiesParameter("zookeeper.connection.timeout.ms", "30000", kafkaPath + "config/server.properties");
+        Tools.changeSinglePropertiesParameter("zookeeper.session.timeout.ms", "30000", kafkaPath + "config/server.properties");
         Tools.changeReverseMigrationParameters(PortalControl.toolsMigrationParametersTable);
         String sourceConfigPath = PortalControl.portalWorkSpacePath + "config/debezium/opengauss-source.properties";
         String sinkConfigPath = PortalControl.portalWorkSpacePath + "config/debezium/opengauss-sink.properties";
