@@ -138,10 +138,10 @@ public class Task {
         tempTaskLogMap.put(Method.Run.ZOOKEEPER, PortalControl.portalWorkSpacePath + "logs/debezium/server.log");
         tempTaskLogMap.put(Method.Run.KAFKA, PortalControl.portalWorkSpacePath + "logs/debezium/server.log");
         tempTaskLogMap.put(Method.Run.REGISTRY, PortalControl.portalWorkSpacePath + "logs/debezium/schema-registry.log");
-        tempTaskLogMap.put(Method.Run.CONNECT_SOURCE, PortalControl.portalWorkSpacePath + "logs/debezium/connect.log");
-        tempTaskLogMap.put(Method.Run.CONNECT_SINK, PortalControl.portalWorkSpacePath + "logs/debezium/connect.log");
-        tempTaskLogMap.put(Method.Run.REVERSE_CONNECT_SOURCE, PortalControl.portalWorkSpacePath + "logs/debezium/reverse_connect.log");
-        tempTaskLogMap.put(Method.Run.REVERSE_CONNECT_SINK, PortalControl.portalWorkSpacePath + "logs/debezium/reverse_connect.log");
+        tempTaskLogMap.put(Method.Run.CONNECT_SOURCE, PortalControl.portalWorkSpacePath + "logs/debezium/connect_source.log");
+        tempTaskLogMap.put(Method.Run.CONNECT_SINK, PortalControl.portalWorkSpacePath + "logs/debezium/connect_sink.log");
+        tempTaskLogMap.put(Method.Run.REVERSE_CONNECT_SOURCE, PortalControl.portalWorkSpacePath + "logs/debezium/reverse_connect_source.log");
+        tempTaskLogMap.put(Method.Run.REVERSE_CONNECT_SINK, PortalControl.portalWorkSpacePath + "logs/debezium/reverse_connect_sink.log");
         tempTaskLogMap.put(Method.Run.CHECK_SOURCE, PortalControl.portalWorkSpacePath + "logs/datacheck/source.log");
         tempTaskLogMap.put(Method.Run.CHECK_SINK, PortalControl.portalWorkSpacePath + "logs/datacheck/sink.log");
         tempTaskLogMap.put(Method.Run.CHECK, PortalControl.portalWorkSpacePath + "logs/datacheck/check.log");

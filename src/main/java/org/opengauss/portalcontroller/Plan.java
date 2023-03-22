@@ -243,7 +243,6 @@ public final class Plan {
             }
             Plan.stopPlan = true;
             Plan.stopPlanThreads();
-            Plan.clean();
             if (PortalControl.status == Status.ERROR) {
                 LOGGER.error("Plan failed.");
             } else {
@@ -263,6 +262,7 @@ public final class Plan {
         Tools.closeAllProcess("--config default_" + workspaceId + " --");
         PortalControl.threadCheckProcess.exit = true;
         stopAllTasks();
+        Plan.clean();
         Plan.runningTaskThreadsList.clear();
         Plan.runningTaskList.clear();
         Plan.currentTask = "";

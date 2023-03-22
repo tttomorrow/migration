@@ -554,37 +554,36 @@ public class PortalControl {
      */
     public static void help() {
         showParameters();
-        LOGGER.info("The portal can splice command by the parameters of commandline,or you can input valid command.");
-        LOGGER.info("Command list:");
-        LOGGER.info("install mysql full migration tools online");
-        LOGGER.info("install mysql full migration tools offline");
-        LOGGER.info("install mysql full migration tools");
-        LOGGER.info("install mysql incremental migration tools online");
-        LOGGER.info("install mysql incremental migration tools offline");
-        LOGGER.info("install mysql incremental migration tools");
-        LOGGER.info("install mysql datacheck tools online");
-        LOGGER.info("install mysql datacheck tools offline");
-        LOGGER.info("install mysql datacheck tools");
-        LOGGER.info("install mysql all migration tools");
-        LOGGER.info("uninstall mysql full migration tools");
-        LOGGER.info("uninstall mysql incremental migration tools");
-        LOGGER.info("uninstall mysql datacheck tools");
-        LOGGER.info("uninstall mysql all migration tools");
-        LOGGER.info("start mysql full migration");
-        LOGGER.info("start mysql incremental migration");
-        LOGGER.info("start mysql reverse migration");
-        LOGGER.info("start mysql full migration datacheck");
-        LOGGER.info("start mysql incremental migration datacheck");
-        LOGGER.info("start mysql reverse migration datacheck");
-        LOGGER.info("start plan1 --You can execute plan1 in default plan list.");
-        LOGGER.info("start plan2 --You can execute plan2 in default plan list.");
-        LOGGER.info("start plan3 --You can execute plan3 in default plan list.");
-        LOGGER.info("start current plan --You can execute current plan in currentPlan.");
-        LOGGER.info("show plans --Show default plans.");
-        LOGGER.info("show status --Show plan status.");
-        LOGGER.info("show information --Show information of migration which include user name,password,host,port,database name,schema in mysql and openGauss database.");
-        LOGGER.info("show parameters --Show parameters of commandline.");
-        LOGGER.info("stop plan");
+        LOGGER.info("Order list:");
+        LOGGER.info("install_mysql_full_migration_tools_online");
+        LOGGER.info("install_mysql_full_migration_tools_offline");
+        LOGGER.info("install_mysql_full_migration_tools");
+        LOGGER.info("install_mysql_incremental_migration_tools_online");
+        LOGGER.info("install_mysql_incremental_migration_tools_offline");
+        LOGGER.info("install_mysql_incremental_migration_tools");
+        LOGGER.info("install_mysql_datacheck_tools_online");
+        LOGGER.info("install_mysql_datacheck_tools_offline");
+        LOGGER.info("install_mysql_datacheck_tools");
+        LOGGER.info("install_mysql_all_migration_tools");
+        LOGGER.info("uninstall_mysql_full_migration_tools");
+        LOGGER.info("uninstall_mysql_incremental_migration_tools");
+        LOGGER.info("uninstall_mysql_datacheck_tools");
+        LOGGER.info("uninstall_mysql_all_migration_tools");
+        LOGGER.info("start_mysql_full_migration");
+        LOGGER.info("start_mysql_incremental_migration");
+        LOGGER.info("start_mysql_reverse_migration");
+        LOGGER.info("start_mysql_full_migration_datacheck");
+        LOGGER.info("start_mysql_incremental_migration_datacheck");
+        LOGGER.info("start_mysql_reverse_migration_datacheck");
+        LOGGER.info("start_plan1 --You can execute plan1 in default plan list.");
+        LOGGER.info("start_plan2 --You can execute plan2 in default plan list.");
+        LOGGER.info("start_plan3 --You can execute plan3 in default plan list.");
+        LOGGER.info("start_current plan --You can execute current plan in currentPlan.");
+        LOGGER.info("show_plans --Show default plans.");
+        LOGGER.info("show_status --Show plan status.");
+        LOGGER.info("show_information --Show information of migration which include user name,password,host,port,database name,schema in mysql and openGauss database.");
+        LOGGER.info("show_parameters --Show parameters of commandline.");
+        LOGGER.info("stop_plan");
     }
 
     /**
@@ -645,6 +644,10 @@ public class PortalControl {
             LOGGER.error("Invalid plan.");
             return;
         }
+        if (taskList.contains("start mysql reverse migration")) {
+            boolean flag = Tools.checkReverseMigrationRunnable();
+            Tools.outputInformation(flag,"Reverse migration is runnable.","Reverse migration can not run.");
+        }
         Plan.getInstance(workspaceId).execPlan(PortalControl.taskList);
     }
 
@@ -691,13 +694,8 @@ public class PortalControl {
     public static void showParameters() {
         LOGGER.info("Parameters list:");
         LOGGER.info("path  --The path of portal.");
-        LOGGER.info("action  --The action of portal.");
-        LOGGER.info("type --The database type of migration which includes mysql.");
-        LOGGER.info("migrationType --The migration type which includes full,increment and reverse.");
-        LOGGER.info("skip --If the value of skip is true,you can skip all input parts and use default options in configuration files.");
-        LOGGER.info("check --If the value of check is true, it means datacheck for the same type of migration.");
-        LOGGER.info("parameter --The parameter of action.");
         LOGGER.info("order --The order which portal can execute.");
+        LOGGER.info("worksapce.id --The id of migration plan.");
     }
 
     /**
@@ -723,7 +721,7 @@ public class PortalControl {
      */
     private static void setCommandLineParameters(String parameter, String defaultValue) {
         String temp = System.getProperty(parameter);
-        if (temp != null) {
+        if (temp != null && !temp.equals("")) {
             commandLineParameterStringMap.put(parameter, temp);
         } else {
             commandLineParameterStringMap.put(parameter, defaultValue);

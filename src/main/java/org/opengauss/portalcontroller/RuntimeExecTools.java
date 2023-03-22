@@ -246,7 +246,7 @@ public class RuntimeExecTools {
                 executeOrder(command, 60000, PortalControl.portalWorkSpacePath + "logs/error.log");
             }
         } else {
-            LOGGER.error("File " + filePath + "not exist.");
+            LOGGER.error("File " + filePath + " not exist.");
         }
     }
 
@@ -301,5 +301,11 @@ public class RuntimeExecTools {
         String command = "mv " + oldName + " " + newName;
         executeOrder(command, 600000, PortalControl.portalWorkSpacePath + "logs/error.log");
         LOGGER.info("Rename file " + oldName + " to " + newName + " finished.");
+    }
+
+    public static void copyFileStartWithWord(File file, String workDirectory, String criticalWord,String replaceWord, boolean recovery) {
+        if (file.getName().startsWith(criticalWord)) {
+            RuntimeExecTools.copyFile(file.getAbsolutePath(), workDirectory + replaceWord, recovery);
+        }
     }
 }
