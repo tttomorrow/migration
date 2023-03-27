@@ -26,7 +26,6 @@ import org.opengauss.portalcontroller.constant.Opengauss;
 import org.opengauss.portalcontroller.constant.Parameter;
 import org.opengauss.portalcontroller.constant.Regex;
 import org.opengauss.portalcontroller.constant.StartPort;
-import org.opengauss.portalcontroller.status.TableStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.yaml.snakeyaml.DumperOptions;
@@ -65,6 +64,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
 import java.util.Scanner;
+
+import static org.opengauss.portalcontroller.PortalControl.portalWorkSpacePath;
 
 /**
  * Tools
@@ -653,20 +654,8 @@ public class Tools {
      */
     public static void findOffset() {
         String offsetPath = PortalControl.portalWorkSpacePath + "config/debezium/mysql-source.properties";
-        Properties pps = new Properties();
         try {
-            pps.load(new FileInputStream(PortalControl.migrationConfigPath));
-        } catch (IOException e) {
-            LOGGER.error("IO exception occurred in loading parameters in properties files.");
-        }
-        String opengaussDatabaseHost = pps.getProperty(Opengauss.DATABASE_HOST);
-        String opengaussDatabasePort = pps.getProperty(Opengauss.DATABASE_PORT);
-        String opengaussDatabaseName = pps.getProperty(Opengauss.DATABASE_NAME);
-        String opengaussUserName = pps.getProperty(Opengauss.USER);
-        String opengaussUserPassword = pps.getProperty(Opengauss.PASSWORD);
-        String opengaussUrl = "jdbc:opengauss://" + opengaussDatabaseHost + ":" + opengaussDatabasePort + "/" + opengaussDatabaseName;
-        try {
-            PgConnection conn = (PgConnection) DriverManager.getConnection(opengaussUrl, opengaussUserName, opengaussUserPassword);
+            PgConnection conn = JdbcTools.getPgConnection();
             String sql = "select t_binlog_name,i_binlog_position,t_gtid_set from sch_chameleon.t_replica_batch;";
             ResultSet rs = conn.execSQLQuery(sql);
             if (rs.next()) {
@@ -867,6 +856,7 @@ public class Tools {
     public static boolean installPackage(ArrayList<String> filePathList, String pkgPathParameter, String pkgNameParameter, String installPath, String pathParameter) {
         boolean flag = Tools.checkCriticalFileExists(filePathList);
         if (!flag) {
+            LOGGER.info("Ready to install new package.");
             String packagePath = Tools.getPackagePath(pkgPathParameter, pkgNameParameter);
             Tools.createFile(installPath, false);
             RuntimeExecTools.unzipFile(packagePath, installPath);
@@ -1088,10 +1078,10 @@ public class Tools {
     /**
      * Change connect xml file.
      *
-     * @param workspaceId the workspace id
-     * @param path        the path
+     * @param workspaceIdString the workspace id string
+     * @param path              the path
      */
-    public static void changeConnectXmlFile(String workspaceId, String path) {
+    public static void changeConnectXmlFile(String workspaceIdString, String path) {
         try {
             StringBuilder result = new StringBuilder();
             String temp = "";
@@ -1100,7 +1090,7 @@ public class Tools {
                 if (temp.contains("/connect") && temp.contains(".log")) {
                     int start = temp.indexOf("/connect");
                     String connectLogName = temp.substring(start);
-                    temp = temp.replace(connectLogName, "/connect_" + workspaceId + ".log");
+                    temp = temp.replace(connectLogName, "/connect_" + workspaceIdString + ".log");
                 }
                 result.append(temp).append(System.lineSeparator());
             }
@@ -1552,4 +1542,26 @@ public class Tools {
             LOGGER.error("Interrupted exception occurred in " + name + ".");
         }
     }
+
+    public static boolean checkReverseMigrationRunnable() {
+        boolean flag = true;
+        PgConnection connection = JdbcTools.getPgConnection();
+        if (JdbcTools.selectVersion(connection)) {
+            Hashtable<String, String> parameterTable = new Hashtable<>();
+            parameterTable.put("wal_level", "logical");
+            parameterTable.put("ssl", "on");
+            parameterTable.put("enable_thread_pool", "off");
+            for (String key : parameterTable.keySet()) {
+                boolean parameterFlag = JdbcTools.selectGlobalVariables(connection, key, parameterTable.get(key));
+                if (!parameterFlag) {
+                    flag = false;
+                    break;
+                }
+            }
+        }else{
+            flag = false;
+        }
+        return flag;
+    }
+
 }

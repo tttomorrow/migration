@@ -153,14 +153,23 @@ public class CheckTaskMysqlFullMigration implements CheckTask {
         chameleonParameterTable.put("--config", "default_" + workspaceId);
         task.useChameleonReplicaOrder(chameleonVenv, "drop_replica_schema", chameleonParameterTable, true);
         String chameleonVenvPath = PortalControl.toolsConfigParametersTable.get(Chameleon.VENV_PATH);
-        RuntimeExecTools.removeFile(chameleonVenvPath + "data_default_" + Plan.workspaceId + "_drop_replica_schema.json", PortalControl.portalWorkSpacePath + "logs/error.log");
-        RuntimeExecTools.removeFile(chameleonVenvPath + "data_default_" + Plan.workspaceId + "_create_replica_schema.json", PortalControl.portalWorkSpacePath + "logs/error.log");
-        RuntimeExecTools.removeFile(chameleonVenvPath + "data_default_" + Plan.workspaceId + "_add_source.json", PortalControl.portalWorkSpacePath + "logs/error.log");
-        RuntimeExecTools.removeFile(chameleonVenvPath + "data_default_" + Plan.workspaceId + "_init_replica.json", PortalControl.portalWorkSpacePath + "logs/error.log");
-        RuntimeExecTools.removeFile(chameleonVenvPath + "data_default_" + Plan.workspaceId + "_start_view_replica.json", PortalControl.portalWorkSpacePath + "logs/error.log");
-        RuntimeExecTools.removeFile(chameleonVenvPath + "data_default_" + Plan.workspaceId + "_start_trigger_replica.json", PortalControl.portalWorkSpacePath + "logs/error.log");
-        RuntimeExecTools.removeFile(chameleonVenvPath + "data_default_" + Plan.workspaceId + "_start_proc_replica.json", PortalControl.portalWorkSpacePath + "logs/error.log");
-        RuntimeExecTools.removeFile(chameleonVenvPath + "data_default_" + Plan.workspaceId + "_start_func_replica.json", PortalControl.portalWorkSpacePath + "logs/error.log");
+        ArrayList<String> fileList = new ArrayList<>();
+        String chameleonOrderStr = chameleonVenvPath + "data_default_" + Plan.workspaceId + "_";
+        fileList.add(chameleonOrderStr + "drop_replica_schema.json");
+        fileList.add(chameleonOrderStr + "create_replica_schema.json");
+        fileList.add(chameleonOrderStr + "add_source.json");
+        fileList.add(chameleonOrderStr + "init_replica.json");
+        fileList.add(chameleonOrderStr + "start_view_replica.json");
+        fileList.add(chameleonOrderStr + "start_trigger_replica.json");
+        fileList.add(chameleonOrderStr + "start_proc_replica.json");
+        fileList.add(chameleonOrderStr + "start_func_replica.json");
+        fileList.add(PortalControl.portalWorkSpacePath + "config/input");
+        for(String name:fileList){
+            RuntimeExecTools.removeFile(name, PortalControl.portalWorkSpacePath + "logs/error.log");
+            Tools.sleepThread(100,"clean data");
+        }
+        Tools.createFile(PortalControl.portalWorkSpacePath + "config/input",true);
+        Tools.sleepThread(100,"clean data");
     }
 
     public void checkEnd() {

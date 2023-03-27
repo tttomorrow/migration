@@ -20,6 +20,7 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Hashtable;
+import java.util.Objects;
 
 /**
  * The type Thread status controller.
@@ -73,8 +74,18 @@ public class ThreadStatusController extends Thread {
                 ChangeStatusTools.changeFullStatus();
             }
             if (PortalControl.status < Status.START_REVERSE_MIGRATION && PortalControl.status > Status.FULL_MIGRATION_CHECK_FINISHED) {
-                String sourceIncrementalStatusPath = PortalControl.portalWorkSpacePath + "status/incremental/forward-source-process.txt";
-                String sinkIncrementalStatusPath = PortalControl.portalWorkSpacePath + "status/incremental/forward-sink-process.txt";
+                String sourceIncrementalStatusPath = "";
+                String sinkIncrementalStatusPath = "";
+                File directory = new File(PortalControl.portalWorkSpacePath + "status/incremental/");
+                if (directory.exists() && directory.isDirectory()) {
+                    for (File file : Objects.requireNonNull(directory.listFiles())) {
+                        if (file.getName().contains("forward-source-process")) {
+                            sourceIncrementalStatusPath = file.getAbsolutePath();
+                        } else if (file.getName().contains("forward-sink-process")) {
+                            sinkIncrementalStatusPath = file.getAbsolutePath();
+                        }
+                    }
+                }
                 String incrementalStatusPath = PortalControl.portalWorkSpacePath + "status/incremental_migration.txt";
                 if (new File(sourceIncrementalStatusPath).exists() && new File(sinkIncrementalStatusPath).exists()) {
                     time = ChangeStatusTools.changeIncrementalStatus(sourceIncrementalStatusPath, sinkIncrementalStatusPath, incrementalStatusPath, "createCount");
@@ -83,6 +94,16 @@ public class ThreadStatusController extends Thread {
             if (PortalControl.status >= Status.START_REVERSE_MIGRATION && PortalControl.status != Status.ERROR) {
                 String sourceReverseStatusPath = PortalControl.portalWorkSpacePath + "status/reverse/reverse-source-process.txt";
                 String sinkReverseStatusPath = PortalControl.portalWorkSpacePath + "status/reverse/reverse-sink-process.txt";
+                File directory = new File(PortalControl.portalWorkSpacePath + "status/reverse/");
+                if (directory.exists() && directory.isDirectory()) {
+                    for (File file : Objects.requireNonNull(directory.listFiles())) {
+                        if (file.getName().contains("reverse-source-process")) {
+                            sourceReverseStatusPath = file.getAbsolutePath();
+                        } else if (file.getName().contains("reverse-sink-process")) {
+                            sinkReverseStatusPath = file.getAbsolutePath();
+                        }
+                    }
+                }
                 String reverseStatusPath = PortalControl.portalWorkSpacePath + "status/reverse_migration.txt";
                 if (new File(sourceReverseStatusPath).exists() && new File(sinkReverseStatusPath).exists()) {
                     time = ChangeStatusTools.changeIncrementalStatus(sourceReverseStatusPath, sinkReverseStatusPath, reverseStatusPath, "count");
@@ -93,11 +114,20 @@ public class ThreadStatusController extends Thread {
             Hashtable<String, String> hashtable = new Hashtable<>();
             hashtable.put(kafkaPath + "logs/server.log", PortalControl.portalWorkSpacePath + "logs/debezium/server.log");
             hashtable.put(confluentPath + "logs/schema-registry.log", PortalControl.portalWorkSpacePath + "logs/debezium/schema-registry.log");
-            hashtable.put(confluentPath + "logs/connect_" + workspaceId + ".log", PortalControl.portalWorkSpacePath + "logs/debezium/connect.log");
-            hashtable.put(confluentPath + "logs/connect_" + workspaceId + "_reverse.log", PortalControl.portalWorkSpacePath + "logs/debezium/reverse_connect.log");
             for (String key : hashtable.keySet()) {
                 if (new File(key).exists()) {
                     RuntimeExecTools.copyFile(key, hashtable.get(key), true);
+                }
+            }
+            File logFile = new File(confluentPath + "logs");
+            if (logFile.exists() && logFile.isDirectory()) {
+                File[] logFileList = logFile.listFiles();
+                String workspaceDebeziumLogPath = PortalControl.portalWorkSpacePath + "logs/debezium/";
+                for (File file : logFileList) {
+                    RuntimeExecTools.copyFileStartWithWord(file, workspaceDebeziumLogPath, "connect_" + workspaceId + "_source.log", "connect_source.log", true);
+                    RuntimeExecTools.copyFileStartWithWord(file, workspaceDebeziumLogPath, "connect_" + workspaceId + "_sink.log", "connect_sink.log", true);
+                    RuntimeExecTools.copyFileStartWithWord(file, workspaceDebeziumLogPath, "connect_" + workspaceId + "_reverse_source.log", "reverse_connect_source.log", true);
+                    RuntimeExecTools.copyFileStartWithWord(file, workspaceDebeziumLogPath, "connect_" + workspaceId + "_reverse_sink.log", "reverse_connect_sink.log", true);
                 }
             }
             if (1000 - time > 0) {

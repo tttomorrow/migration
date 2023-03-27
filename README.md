@@ -45,13 +45,13 @@ opengauss-migration-portal是一个用java编写的，在linux系统上运行的
 		portal.log 
 	pkg/           
         chameleon/
-        	chameleon-3.1.1-py3-none-any.whl
+        	chameleon-5.0.0-py3-none-any.whl
         datacheck/
         	openGauss-datachecker-performance-5.0.0.tar.gz
         debezium/
-        	confluent-5.5.1.tar.gz
-        	debezium-connector-mysql-1.8.1.Final-plugin.tar.gz
-        	debezium-connector-opengauss-1.8.1.Final-plugin.tar.gz
+        	confluent-community-5.5.1-2.12.zip
+        	replicate-mysql2openGauss-5.0.0.tar.gz
+        	replicate-openGauss2mysql-5.0.0.tar.gz
         	kafka_2.13-3.2.3.tgz
     tmp/
     tools/
@@ -121,9 +121,9 @@ portal会在workspace文件夹下创造对应id的文件夹，并将执行任务
 
 各工具推荐版本：
 
-| 工具                         | 版本       |
-| ---------------------------- | ---------- |
-| chameleon                    | 3.1.1以上  |
+| 工具                         | 版本         |
+| ---------------------------- |------------|
+| chameleon                    | 5.0.0      |
 | kafka                        | 2.13-3.2.3 |
 | confluent                    | 5.5.1      |
 | datacheck                    | 5.0.0      |
