@@ -251,11 +251,10 @@ public class Task {
      * @param chameleonVenvPath the chameleon venv path
      * @param order             the order
      * @param parametersTable   the parameters table
-     * @param isInstantCommand  the is instant command
      */
-    public void useChameleonReplicaOrder(String chameleonVenvPath, String order, Hashtable<String, String> parametersTable, boolean isInstantCommand) {
+    public void useChameleonReplicaOrder(String chameleonVenvPath, String order, Hashtable<String, String> parametersTable) {
         startChameleonReplicaOrder(chameleonVenvPath, order, parametersTable);
-        checkChameleonReplicaOrder(order, parametersTable, isInstantCommand);
+        checkChameleonReplicaOrder(order);
     }
 
     /**
@@ -266,23 +265,20 @@ public class Task {
      * @param parametersTable   Parameters table.
      */
     public void startChameleonReplicaOrder(String chameleonVenvPath, String order, Hashtable<String, String> parametersTable) {
-        if (Plan.stopPlan) {
+        if (Plan.stopPlan && !order.equals("drop_replica_schema")) {
             return;
         }
         String chameleonOrder = Tools.jointChameleonOrders(parametersTable, order);
         RuntimeExecTools.executeOrder(chameleonOrder, 2000, chameleonVenvPath, PortalControl.portalWorkSpacePath + "logs/full_migration.log");
-
     }
 
     /**
      * Check chameleon replica order.
      *
-     * @param order            the order
-     * @param parametersTable  the parameters table
-     * @param isInstantCommand the is instant command
+     * @param order the order
      */
-    public void checkChameleonReplicaOrder(String order, Hashtable<String, String> parametersTable, boolean isInstantCommand) {
-        if (Plan.stopPlan) {
+    public void checkChameleonReplicaOrder(String order) {
+        if (Plan.stopPlan && !order.equals("drop_replica_schema")) {
             return;
         }
         String endFlag = order + " finished";

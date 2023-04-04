@@ -1,5 +1,6 @@
 package org.opengauss.portalcontroller.check;
 
+import org.opengauss.jdbc.PgConnection;
 import org.opengauss.portalcontroller.*;
 import org.opengauss.portalcontroller.constant.Check;
 import org.opengauss.portalcontroller.constant.Command;
@@ -15,6 +16,7 @@ import org.opengauss.portalcontroller.software.Software;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Hashtable;
@@ -141,6 +143,17 @@ public class CheckTaskIncrementalDatacheck implements CheckTask {
                 PortalControl.status = Status.INCREMENTAL_MIGRATION_FINISHED;
                 Plan.pause = true;
                 Tools.sleepThread(50, "pausing the plan");
+            }
+            if (PortalControl.taskList.contains("start mysql reverse migration")) {
+                try {
+                    PgConnection conn = JdbcTools.getPgConnection();
+                    JdbcTools.changeAllTable(conn);
+                    String slotName = "slot_" + Plan.workspaceId;
+                    JdbcTools.createLogicalReplicationSlot(conn, slotName);
+                    conn.close();
+                } catch (SQLException e) {
+                    LOGGER.error(e.getMessage());
+                }
             }
             Task.stopTaskMethod(Method.Run.CHECK);
             Task.stopTaskMethod(Method.Run.CHECK_SINK);

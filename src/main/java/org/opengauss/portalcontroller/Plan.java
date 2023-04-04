@@ -14,6 +14,7 @@
  */
 package org.opengauss.portalcontroller;
 
+import org.opengauss.jdbc.PgConnection;
 import org.opengauss.portalcontroller.check.*;
 import org.opengauss.portalcontroller.constant.Command;
 import org.opengauss.portalcontroller.constant.Debezium;
@@ -28,6 +29,7 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Hashtable;
@@ -136,6 +138,11 @@ public final class Plan {
      * The constant pause.
      */
     public static boolean pause = false;
+
+    /**
+     * The constant slotName.
+     */
+    public static String slotName = "";
 
     /**
      * Get a instance of class plan.
@@ -371,6 +378,17 @@ public final class Plan {
         if (PortalControl.taskList.contains(Command.Start.Mysql.FULL)) {
             CheckTaskMysqlFullMigration checkTaskMysqlFullMigration = new CheckTaskMysqlFullMigration();
             checkTaskMysqlFullMigration.cleanData(workspaceId);
+        }
+        if (PortalControl.taskList.contains(Command.Start.Mysql.REVERSE)) {
+            try {
+                PgConnection conn = JdbcTools.getPgConnection();
+                JdbcTools.changeAllTable(conn);
+                String slotName = Plan.slotName;
+                JdbcTools.dropLogicalReplicationSlot(conn, slotName);
+                conn.close();
+            } catch (SQLException e) {
+                LOGGER.error(e.getMessage());
+            }
         }
     }
 

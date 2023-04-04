@@ -183,7 +183,7 @@ public class ChangeStatusTools {
         String sinkStr = "";
         sinkStr = Tools.readFile(new File(sinkMigrationStatusPath));
         JSONObject sinkObject = JSONObject.parseObject(sinkStr);
-        int replayedCount = sinkObject.getInteger("extractCount");
+        int replayedCount = sinkObject.getInteger("replayedCount");
         int sinkSpeed = sinkObject.getInteger("speed");
         long sinkTimestamp = sinkObject.getLong("timestamp");
         if (sinkTimestamp > sourceFirstTimestamp) {

@@ -646,33 +646,9 @@ public class PortalControl {
         }
         if (taskList.contains("start mysql reverse migration")) {
             boolean flag = Tools.checkReverseMigrationRunnable();
-            Tools.outputInformation(flag,"Reverse migration is runnable.","Reverse migration can not run.");
+            Tools.outputInformation(flag, "Reverse migration is runnable.", "Reverse migration can not run.");
         }
         Plan.getInstance(workspaceId).execPlan(PortalControl.taskList);
-    }
-
-    /**
-     * Stop plan.
-     */
-    public static void stopPlanCheck() {
-        if (!PortalControl.noinput) {
-            LOGGER.warn("Please input yes to stop current plan.");
-            Scanner sc = new Scanner(System.in);
-            String stopOrder = sc.nextLine();
-            if (stopOrder.equals("yes")) {
-                Plan.stopPlan = true;
-                if (Plan.isPlanRunnable) {
-                    Plan.stopPlanThreads();
-                }
-            } else {
-                Plan.stopPlan = false;
-            }
-        } else {
-            Plan.stopPlan = true;
-            if (Plan.isPlanRunnable) {
-                Plan.stopPlanThreads();
-            }
-        }
     }
 
     /**
