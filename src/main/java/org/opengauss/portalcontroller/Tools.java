@@ -1543,25 +1543,59 @@ public class Tools {
         }
     }
 
+    /**
+     * Check reverse migration runnable boolean.
+     *
+     * @return the boolean
+     */
     public static boolean checkReverseMigrationRunnable() {
-        boolean flag = true;
+        boolean isReverseRunnable = false;
         PgConnection connection = JdbcTools.getPgConnection();
         if (JdbcTools.selectVersion(connection)) {
             Hashtable<String, String> parameterTable = new Hashtable<>();
             parameterTable.put("wal_level", "logical");
             parameterTable.put("ssl", "on");
             parameterTable.put("enable_thread_pool", "off");
+            int parameter = 0;
             for (String key : parameterTable.keySet()) {
-                boolean parameterFlag = JdbcTools.selectGlobalVariables(connection, key, parameterTable.get(key));
-                if (!parameterFlag) {
-                    flag = false;
+                if (JdbcTools.selectGlobalVariables(connection, key, parameterTable.get(key))) {
+                    parameter++;
+                } else {
                     break;
                 }
             }
-        }else{
-            flag = false;
+            if (parameter == parameterTable.size()) {
+                isReverseRunnable = true;
+            }
         }
-        return flag;
+        return isReverseRunnable;
+    }
+
+    /**
+     * Sets x log path.
+     */
+    public static void setXLogPath() {
+        String xLogPath = PortalControl.portalWorkSpacePath + "status/incremental/xlog.txt";
+        String xLogLocation = "";
+        File file = new File(xLogPath);
+        try {
+            if (file.exists()) {
+                BufferedReader fileReader = new BufferedReader((new InputStreamReader(new FileInputStream(file))));
+                String tempStr = "";
+                while ((tempStr = fileReader.readLine()) != null) {
+                    if (tempStr.contains("xlog location")) {
+                        int index = tempStr.lastIndexOf(":") + 1;
+                        xLogLocation = tempStr.substring(index).trim();
+                    }
+                }
+                fileReader.close();
+            }
+        } catch (IOException e) {
+            LOGGER.info("IO exception occurred in read file " + file.getAbsolutePath());
+        }
+        Hashtable<String, String> hashtable = new Hashtable<>();
+        hashtable.put("xlog.location", xLogLocation);
+        Tools.changePropertiesParameters(hashtable, portalWorkSpacePath + "config/debezium/opengauss-source.properties");
     }
 
 }

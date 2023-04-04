@@ -79,9 +79,6 @@ public class CheckTaskReverseDatacheck implements CheckTask {
         Task.startTaskMethod(Method.Run.KAFKA, 8000);
         Task.startTaskMethod(Method.Run.REGISTRY, 8000);
         changeParameters(workspaceId);
-        if (!checkNecessaryProcessExist()) {
-            LOGGER.error("There is no kafka running.Reverse datacheck failed.");
-        }
     }
 
     @Override

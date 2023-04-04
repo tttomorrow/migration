@@ -1,5 +1,6 @@
 package org.opengauss.portalcontroller.check;
 
+import org.opengauss.jdbc.PgConnection;
 import org.opengauss.portalcontroller.*;
 import org.opengauss.portalcontroller.constant.Debezium;
 import org.opengauss.portalcontroller.constant.Method;
@@ -10,6 +11,7 @@ import org.opengauss.portalcontroller.software.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Hashtable;
 
@@ -72,6 +74,7 @@ public class CheckTaskIncrementalMigration implements CheckTask {
         Hashtable<String, String> hashtable2 = new Hashtable<>();
         hashtable2.put("name", "mysql-sink-" + workspaceId);
         hashtable2.put("topics", "mysql_server_" + workspaceId + "_topic");
+        Tools.createFile(portalWorkSpacePath + "status/incremental", false);
         hashtable2.put("sink.process.file.path", portalWorkSpacePath + "status/incremental");
         hashtable2.put("xlog.location", portalWorkSpacePath + "status/incremental/xlog.txt");
         Tools.changePropertiesParameters(hashtable2, sinkConfigPath);
@@ -122,14 +125,25 @@ public class CheckTaskIncrementalMigration implements CheckTask {
     public void checkEnd() {
         while (!Plan.stopPlan && !Plan.stopIncrementalMigration && !PortalControl.taskList.contains("start mysql incremental migration datacheck")) {
             LOGGER.info("Incremental migration is running...");
-            Tools.sleepThread(1000,"running incremental migraiton");
+            Tools.sleepThread(1000, "running incremental migraiton");
         }
         if (Plan.stopIncrementalMigration) {
             Task task = new Task();
             if (PortalControl.status != Status.ERROR) {
                 PortalControl.status = Status.INCREMENTAL_MIGRATION_FINISHED;
                 Plan.pause = true;
-                Tools.sleepThread(50,"pausing the plan");
+                Tools.sleepThread(50, "pausing the plan");
+            }
+            if (PortalControl.taskList.contains("start mysql reverse migration")) {
+                try {
+                    PgConnection conn = JdbcTools.getPgConnection();
+                    JdbcTools.changeAllTable(conn);
+                    String slotName = "slot_" + Plan.workspaceId;
+                    JdbcTools.createLogicalReplicationSlot(conn, slotName);
+                    conn.close();
+                } catch (SQLException e) {
+                    LOGGER.error("SQL exception occurred in create logical replication slot.");
+                }
             }
             task.stopTaskMethod(Method.Run.CONNECT_SINK);
             task.stopTaskMethod(Method.Run.CONNECT_SOURCE);

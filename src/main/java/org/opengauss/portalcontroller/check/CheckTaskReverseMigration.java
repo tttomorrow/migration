@@ -69,12 +69,13 @@ public class CheckTaskReverseMigration implements CheckTask {
         hashtable1.put("transforms.route.regex", "^" + "opengauss_server_" + workspaceId + "(.*)");
         hashtable1.put("transforms.route.replacement", "opengauss_server_" + workspaceId + "_topic");
         hashtable1.put("source.process.file.path", portalWorkSpacePath + "status/reverse");
-        hashtable1.put("slot.name", "slot_" + workspaceId);
+        hashtable1.put("slot.name", Plan.slotName);
         Tools.changePropertiesParameters(hashtable1, sourceConfigPath);
         Hashtable<String, String> hashtable2 = new Hashtable<>();
         hashtable2.put("topics", "opengauss_server_" + workspaceId + "_topic");
         hashtable2.put("sink.process.file.path", portalWorkSpacePath + "status/reverse");
         Tools.changePropertiesParameters(hashtable2, sinkConfigPath);
+        Tools.setXLogPath();
     }
 
     @Override
