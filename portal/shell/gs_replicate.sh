@@ -1,0 +1,97 @@
+#!/bin/bash
+APP_NAME=portalControl-1.0-SNAPSHOT-exec.jar
+
+#根据参数决定迁移模式
+case "$2" in
+"mysql-opengauss")
+TYPE=incremental_migration
+;;
+"opengauss-mysql")
+TYPE=reverse_migration
+;;
+*)
+usage
+;;
+esac
+
+START_ORDER=start_mysql_${TYPE}
+STOP_ORDER=stop_plan
+INSTALL_ORDER=install_mysql_${TYPE}_tools
+UNINSTALL_ORDER=uninstall_mysql_${TYPE}_tools
+SIGN="-Dworkspace.id=$3"
+NAME=$3
+PORTAL_PATH="$PWD/"
+SKIP=true
+
+#使用说明，用来提示输入参数
+usage() {
+echo "Usage: ./脚本名.sh [install|start|stop|uninstall] [mysql-opengauss|opengauss-mysql] workspace.id"
+echo "workspace.id is id of migration plan"
+exit 1
+}
+
+#检查程序是否在运行
+is_exist() {
+pid=`ps -ef|grep $SIGN |grep $APP_NAME |grep -v grep|awk '{print $3}' `
+#如果不存在返回1，存在返回0
+if [ -z "${pid}" ]; then
+return 1
+else
+return 0
+fi
+}
+
+#安装方法
+install(){
+java -Dpath=${PORTAL_PATH} -Dskip=${SKIP} -Dworkspace.id=${NAME} -Dorder=${INSTALL_ORDER} -jar $APP_NAME &
+wait
+}
+
+#启动方法
+start(){
+is_exist
+if [ $? -eq "0" ]; then
+echo "Migration plan $3 is already running. pid=${pid} ."
+else
+java -Dpath=${PORTAL_PATH} -Dskip=${SKIP} -Dworkspace.id=${NAME} -Dorder=${START_ORDER} -jar $APP_NAME &
+wait
+fi
+}
+
+#停止方法
+stop(){
+java -Dpath=${PORTAL_PATH} -Dskip=${SKIP} -Dworkspace.id=${NAME} -Dorder=${STOP_ORDER} -jar $APP_NAME &
+wait
+}
+
+#卸载方法
+uninstall(){
+java -Dpath=${PORTAL_PATH} -Dskip=${SKIP} -Dworkspace.id=${NAME} -Dorder=${UNINSTALL_ORDER} -jar $APP_NAME &
+wait
+}
+
+
+#根据输入参数，选择执行对应方法，不输入则执行使用说明
+if [ -z "${TYPE}" ]; then
+echo "invalid migration type"
+usage
+else
+case "$1" in
+"install")
+install
+;;
+"start")
+start
+;;
+"stop")
+stop
+;;
+"uninstall")
+uninstall
+;;
+*)
+echo "invalid command"
+usage
+;;
+esac
+fi

@@ -57,6 +57,8 @@ public class CheckTaskIncrementalMigration implements CheckTask {
         String kafkaPath = hashtable.get(Debezium.Kafka.PATH);
         Tools.changeSinglePropertiesParameter("dataDir", PortalControl.portalControlPath + "tmp/zookeeper", kafkaPath + "config/zookeeper.properties");
         Tools.changeSinglePropertiesParameter("log.dirs", PortalControl.portalControlPath + "tmp/kafka-logs", kafkaPath + "config/server.properties");
+        Tools.changeSinglePropertiesParameter("zookeeper.connection.timeout.ms", "30000", kafkaPath + "config/server.properties");
+        Tools.changeSinglePropertiesParameter("zookeeper.session.timeout.ms", "30000", kafkaPath + "config/server.properties");
         String sourceConfigPath = PortalControl.portalWorkSpacePath + "config/debezium/mysql-source.properties";
         String sinkConfigPath = PortalControl.portalWorkSpacePath + "config/debezium/mysql-sink.properties";
         Hashtable<String, String> hashtable1 = new Hashtable<>();
@@ -65,12 +67,13 @@ public class CheckTaskIncrementalMigration implements CheckTask {
         hashtable1.put("database.history.kafka.topic", "mysql_server_" + workspaceId + "_history");
         hashtable1.put("transforms.route.regex", "^" + "mysql_server_" + workspaceId + "(.*)");
         hashtable1.put("transforms.route.replacement", "mysql_server_" + workspaceId + "_topic");
-        hashtable1.put("file.path", portalWorkSpacePath + "status/incremental");
+        hashtable1.put("source.process.file.path", portalWorkSpacePath + "status/incremental");
         Tools.changePropertiesParameters(hashtable1, sourceConfigPath);
         Hashtable<String, String> hashtable2 = new Hashtable<>();
         hashtable2.put("name", "mysql-sink-" + workspaceId);
         hashtable2.put("topics", "mysql_server_" + workspaceId + "_topic");
-        hashtable2.put("file.path", portalWorkSpacePath + "status/incremental");
+        hashtable2.put("sink.process.file.path", portalWorkSpacePath + "status/incremental");
+        hashtable2.put("xlog.location", portalWorkSpacePath + "status/incremental/xlog.txt");
         Tools.changePropertiesParameters(hashtable2, sinkConfigPath);
     }
 
@@ -89,7 +92,7 @@ public class CheckTaskIncrementalMigration implements CheckTask {
         }
         Tools.findOffset();
         String confluentPath = PortalControl.toolsConfigParametersTable.get(Debezium.Confluent.PATH);
-        Tools.changeConnectXmlFile(workspaceId, confluentPath + "etc/kafka/connect-log4j.properties");
+        Tools.changeConnectXmlFile(workspaceId + "_source", confluentPath + "etc/kafka/connect-log4j.properties");
         String standaloneSourcePath = PortalControl.portalWorkSpacePath + "config/debezium/connect-avro-standalone-source.properties";
         int sourcePort = StartPort.REST_MYSQL_SOURCE + PortalControl.portId * 10;
         int port = Tools.getAvailablePorts(sourcePort, 1, 1000).get(0);
@@ -104,7 +107,7 @@ public class CheckTaskIncrementalMigration implements CheckTask {
         }
         String standaloneSinkFilePath = PortalControl.portalWorkSpacePath + "config/debezium/connect-avro-standalone-sink.properties";
         String confluentPath = PortalControl.toolsConfigParametersTable.get(Debezium.Confluent.PATH);
-        Tools.changeConnectXmlFile(workspaceId, confluentPath + "etc/kafka/connect-log4j.properties");
+        Tools.changeConnectXmlFile(workspaceId + "_sink", confluentPath + "etc/kafka/connect-log4j.properties");
         int sinkPort = StartPort.REST_MYSQL_SINK + PortalControl.portId * 10;
         int port = Tools.getAvailablePorts(sinkPort, 1, 1000).get(0);
         Tools.changeSinglePropertiesParameter("rest.port", String.valueOf(port), standaloneSinkFilePath);

@@ -4,7 +4,6 @@ import org.opengauss.portalcontroller.*;
 import org.opengauss.portalcontroller.constant.Debezium;
 import org.opengauss.portalcontroller.constant.Method;
 import org.opengauss.portalcontroller.constant.MigrationParameters;
-import org.opengauss.portalcontroller.constant.Parameter;
 import org.opengauss.portalcontroller.constant.StartPort;
 import org.opengauss.portalcontroller.constant.Status;
 import org.opengauss.portalcontroller.software.*;
@@ -59,6 +58,8 @@ public class CheckTaskReverseMigration implements CheckTask {
         String kafkaPath = hashtable.get(Debezium.Kafka.PATH);
         Tools.changeSinglePropertiesParameter("dataDir", PortalControl.portalControlPath + "tmp/zookeeper", kafkaPath + "config/zookeeper.properties");
         Tools.changeSinglePropertiesParameter("log.dirs", PortalControl.portalControlPath + "tmp/kafka-logs", kafkaPath + "config/server.properties");
+        Tools.changeSinglePropertiesParameter("zookeeper.connection.timeout.ms", "30000", kafkaPath + "config/server.properties");
+        Tools.changeSinglePropertiesParameter("zookeeper.session.timeout.ms", "30000", kafkaPath + "config/server.properties");
         Tools.changeReverseMigrationParameters(PortalControl.toolsMigrationParametersTable);
         String sourceConfigPath = PortalControl.portalWorkSpacePath + "config/debezium/opengauss-source.properties";
         String sinkConfigPath = PortalControl.portalWorkSpacePath + "config/debezium/opengauss-sink.properties";
@@ -67,12 +68,12 @@ public class CheckTaskReverseMigration implements CheckTask {
         hashtable1.put("database.history.kafka.topic", "opengauss_server_" + workspaceId + "_history");
         hashtable1.put("transforms.route.regex", "^" + "opengauss_server_" + workspaceId + "(.*)");
         hashtable1.put("transforms.route.replacement", "opengauss_server_" + workspaceId + "_topic");
-        hashtable1.put("file.path", portalWorkSpacePath + "status/reverse");
+        hashtable1.put("source.process.file.path", portalWorkSpacePath + "status/reverse");
         hashtable1.put("slot.name", "slot_" + workspaceId);
         Tools.changePropertiesParameters(hashtable1, sourceConfigPath);
         Hashtable<String, String> hashtable2 = new Hashtable<>();
         hashtable2.put("topics", "opengauss_server_" + workspaceId + "_topic");
-        hashtable2.put("file.path", portalWorkSpacePath + "status/reverse");
+        hashtable2.put("sink.process.file.path", portalWorkSpacePath + "status/reverse");
         Tools.changePropertiesParameters(hashtable2, sinkConfigPath);
     }
 
@@ -100,12 +101,12 @@ public class CheckTaskReverseMigration implements CheckTask {
         int port = Tools.getAvailablePorts(sourcePort, 1, 1000).get(0);
         Tools.changeSinglePropertiesParameter("rest.port", String.valueOf(port), PortalControl.portalWorkSpacePath + "config/debezium/connect-avro-standalone-reverse-source.properties");
         String confluentPath = PortalControl.toolsConfigParametersTable.get(Debezium.Confluent.PATH);
-        Tools.changeConnectXmlFile(workspaceId + "_reverse", confluentPath + "etc/kafka/connect-log4j.properties");
+        Tools.changeConnectXmlFile(workspaceId + "_reverse_source", confluentPath + "etc/kafka/connect-log4j.properties");
         Task.startTaskMethod(Method.Run.REVERSE_CONNECT_SOURCE, 8000);
         int sinkPort = StartPort.REST_OPENGAUSS_SINK + PortalControl.portId * 10;
         int port2 = Tools.getAvailablePorts(sinkPort, 1, 1000).get(0);
         Tools.changeSinglePropertiesParameter("rest.port", String.valueOf(port2), PortalControl.portalWorkSpacePath + "config/debezium/connect-avro-standalone-reverse-sink.properties");
-        Tools.changeConnectXmlFile(workspaceId + "_reverse", confluentPath + "etc/kafka/connect-log4j.properties");
+        Tools.changeConnectXmlFile(workspaceId + "_reverse_sink", confluentPath + "etc/kafka/connect-log4j.properties");
         Task.startTaskMethod(Method.Run.REVERSE_CONNECT_SINK, 8000);
         if (PortalControl.status != Status.ERROR) {
             PortalControl.status = Status.RUNNING_REVERSE_MIGRATION;
